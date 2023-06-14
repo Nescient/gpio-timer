@@ -13,7 +13,7 @@ sh cmake-3.26.4-linux-x86_64.sh
 
 # sudo apt install cmake # why is the package manager so old?!?!!?
 
-sudo apt install build-essential clang clang-format clang-tidy cppcheck doxygen codespell lcov python3-pip
+sudo apt install build-essential clang clang-format clang-tidy cppcheck doxygen codespell lcov python3-pip curl libcurl4-openssl-dev
 pip install conan cmake-init
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 ```
