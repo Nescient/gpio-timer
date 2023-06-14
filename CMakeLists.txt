@@ -13,6 +13,20 @@ project(
 include(cmake/project-is-top-level.cmake)
 include(cmake/variables.cmake)
 
+# ---- Get Dependencies ----
+
+include(ExternalProject)
+
+set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
+
+ExternalProject_Add(restclient-cpp-proj
+    GIT_REPOSITORY https://github.com/mrtazz/restclient-cpp
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+)
+
+include_directories(${EXTERNAL_INSTALL_LOCATION}/include)
+link_directories(${EXTERNAL_INSTALL_LOCATION}/lib)
+
 # ---- Declare library ----
 
 add_library(
@@ -27,9 +41,10 @@ target_include_directories(
 )
 
 target_compile_features(gpio_lib PUBLIC cxx_std_17)
+add_dependencies(gpio_lib restclient-cpp-proj)
 
 find_package(fmt REQUIRED)
-target_link_libraries(gpio_lib PRIVATE fmt::fmt)
+target_link_libraries(gpio_lib PRIVATE fmt::fmt restclient-cpp)
 
 # ---- Declare executable ----
 
