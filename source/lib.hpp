@@ -1,7 +1,8 @@
 #pragma once
 
 #include <string>
-
+#include <memory>
+#include "restclient-cpp/connection.h"
 /**
  * @brief The core implementation of the executable
  *
@@ -18,4 +19,6 @@ struct library
   library();
 
   std::string name;
+
+  std::shared_ptr<RestClient::Connection> connection;
 };
