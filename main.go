@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/Nescient/gpio-timer/derbynet"
 	"sort"
 	"strings"
 	"time"
@@ -18,4 +19,6 @@ func main() {
 	// Finding the time
 	fmt.Println("Time: ", time.Now().Unix())
 
+	derbynet.GetCookie()
+	derbynet.Hello("")
 }
