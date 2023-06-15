@@ -23,3 +23,4 @@ go.work
 
 # my file
 gpio-timer
+.commit_id

@@ -1,29 +1,41 @@
 package main
 
 import (
-	"fmt"
+	_ "embed"
 	"github.com/Nescient/gpio-timer/derbynet"
-	"sort"
-	"strings"
+	"log"
+	"os"
+	"runtime/debug"
 	"time"
 )
 
+//go:generate sh -c "printf %s $(git rev-parse HEAD) > .commit_id"
+//go:embed .commit_id
+var gitrev string
+
 func main() {
-	s := []int{345, 78, 123, 10, 76, 2, 567, 5}
-	sort.Ints(s)
-	fmt.Println("Sorted slice: ", s)
 
-	// Finding the index
-	fmt.Println("Index value: ", strings.Index("GeeksforGeeks", "ks"))
+	whoAmI := os.Args[0]
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				whoAmI += setting.Value
+			} else if setting.Key == "vcs.time" {
+				whoAmI += setting.Value
+			} else if setting.Key == "vcs.modified" {
+				whoAmI += "-DIRTY"
+			}
+		}
+	}
 
-	// Finding the time
-	fmt.Println("Time: ", time.Now().Unix())
+	log.Println(whoAmI)
+	log.Println(gitrev)
 
 	derbynet.GetCookie()
 	derbynet.Hello()
 	derbynet.Identified()
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1; i++ {
 		derbynet.Heartbeat()
 		time.Sleep(time.Second * 5)
 	}
