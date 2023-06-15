@@ -1,3 +1,3 @@
 #!/bin/sh
 
-g++ -Wall -o gpio main.cpp -lgpiodcxx
+./go.sh build -v
