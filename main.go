@@ -21,4 +21,10 @@ func main() {
 
 	derbynet.GetCookie()
 	derbynet.Hello()
+	derbynet.Identified()
+
+	for i := 0; i < 10; i++ {
+		derbynet.Heartbeat()
+		time.Sleep(time.Second * 5)
+	}
 }

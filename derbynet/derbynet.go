@@ -49,42 +49,42 @@ func GetCookie() {
 	}
 }
 
-func timerMessage(msg string) {
-	response, err := client.PostForm(fullUrl, url.Values{
-		"action":  {"timer-message"},
-		"message": {msg}})
+func timerMessage(msg string, params url.Values) string {
+	if params == nil {
+		params = make(url.Values)
+	}
+	
+	params.Set("action", "timer-message")
+	params.Set("message", msg)
 
-	//okay, moving on...
+	resp, err := client.PostForm(fullUrl, params)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
+	defer resp.Body.Close()
 
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Printf("%s\n", string(body))
+	return string(body)
+}
+
+func Heartbeat() {
+	log.Printf("heartbeat returned: %s\n", timerMessage("HEARTBEAT", nil))
 }
 
 func Hello() {
-	response, err := client.PostForm(fullUrl, url.Values{
-		"action":  {"timer-message"},
-		"message": {"HELLO"}})
-
-	//okay, moving on...
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf("%s\n", string(body))
+	log.Printf("hello returned: %s\n", timerMessage("HELLO", nil))
 }
+
+func Identified() {
+	params := make(url.Values)
+	params.Set("lane_count", "4")
+	params.Set("timer", "github.com/Nescient/gpio-timer")
+	params.Set("human", "GPIO Timer")
+	log.Printf("identified returned: %s\n", timerMessage("IDENTIFIED", params))
+}
+
