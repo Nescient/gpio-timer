@@ -20,5 +20,5 @@ func main() {
 	fmt.Println("Time: ", time.Now().Unix())
 
 	derbynet.GetCookie()
-	derbynet.Hello("")
+	derbynet.Hello()
 }
