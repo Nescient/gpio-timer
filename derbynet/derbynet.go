@@ -1,3 +1,5 @@
+// derbynet is a package to send and receive HTTP messages with the derbynet server.
+// see https://derbynet.org/ and https://derbynet.org/builds/docs/Developers-%20Timer%20Messages.pdf
 package derbynet
 
 import (
@@ -8,7 +10,10 @@ import (
 	"net/url"
 )
 
+// fullUrl is the complete URL to the derbynet action page
 var fullUrl = "http://192.168.0.236/action.php"
+
+// client is our saved "connected" client (that has the cookie)
 var client http.Client
 
 // init will create a new client with a cookie jar,
@@ -49,6 +54,7 @@ func GetCookie() {
 	}
 }
 
+// timerMessage is a helper function to send timer messages
 func timerMessage(msg string, params url.Values) string {
 	if params == nil {
 		params = make(url.Values)
@@ -72,14 +78,18 @@ func timerMessage(msg string, params url.Values) string {
 	return string(body)
 }
 
+// Heartbeat sends the heartbeat message to the server
 func Heartbeat() {
 	log.Printf("heartbeat returned: %s\n", timerMessage("HEARTBEAT", nil))
 }
 
+// Hello sends the hello message to the server
 func Hello() {
 	log.Printf("hello returned: %s\n", timerMessage("HELLO", nil))
 }
 
+// Identified sends the identified message to the server with the
+// provided identification string (probably the git rev)
 func Identified(ident string) {
 	params := make(url.Values)
 	params.Set("lane_count", "4")
