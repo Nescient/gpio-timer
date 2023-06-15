@@ -33,7 +33,7 @@ func main() {
 
 	derbynet.GetCookie()
 	derbynet.Hello()
-	derbynet.Identified()
+	derbynet.Identified(gitrev)
 
 	for i := 0; i < 1; i++ {
 		derbynet.Heartbeat()

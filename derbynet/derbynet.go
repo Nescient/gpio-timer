@@ -80,11 +80,12 @@ func Hello() {
 	log.Printf("hello returned: %s\n", timerMessage("HELLO", nil))
 }
 
-func Identified() {
+func Identified(ident string) {
 	params := make(url.Values)
 	params.Set("lane_count", "4")
 	params.Set("timer", "github.com/Nescient/gpio-timer")
 	params.Set("human", "GPIO Timer")
+	params.Set("ident", ident)
 	log.Printf("identified returned: %s\n", timerMessage("IDENTIFIED", params))
 }
 
