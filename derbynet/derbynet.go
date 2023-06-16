@@ -21,12 +21,6 @@ var fullUrl = "http://192.168.0.236/action.php"
 // client is our saved "connected" client (that has the cookie)
 var client http.Client
 
-// roundID indicates which race round is currently active
-var roundID = 0
-
-// heat indicates which race heat is currently active
-var heat = 0
-
 // HeatReady is the XML structure that indicates a race is
 // ready to start.
 type HeatReady struct {
@@ -34,23 +28,28 @@ type HeatReady struct {
 	// lane-mask: The attribute value is a decimal representation of a bit mask showing which lanes
 	// will be occupied for the heat. E.g., lane-mask=“14” means lane 1 (20) will be empty but cars
 	// will be in lanes 2 (21), 3 (22), and 4 (23).
-	laneMask int `xml:"lane-mask,attr"`
+	LaneMask int `xml:"lane-mask,attr"`
 	// class: This attribute contains a human-readable name for the current racing class (group name)
-	class string `xml:"class,attr"`
+	Class string `xml:"class,attr"`
 	// round: The ordinal round number for the class (e.g., 1 for the first round, 2 for the second, etc.).
-	round int `xml:"round,attr"`
+	Round int `xml:"round,attr"`
 	// roundid: The internal integer identifier of the round. Roundids are unique across all rounds in
 	// the database. (Thus, two different classes may each have a first round, but those rounds will
 	// have different roundids.)
-	roundID int `xml:"roundid,attr"`
+	RoundID int `xml:"roundid,attr"`
 	// heat: The number of the current heat within the current round, with 1 being the first heat
-	heat int `xml:"heat,attr"`
+	Heat int `xml:"heat,attr"`
 }
 
+// ActionResponse is the XML structure that represents the response
+// from the derbynet server
 type ActionResponse struct {
-	XMLName xml.Name `xml:"action-response"`
-	hr HeatReady `xml:"heat-ready"`
+	XMLName xml.Name  `xml:"action-response"`
+	Heat    HeatReady `xml:"heat-ready"`
 }
+
+// the last received HeatReady response
+var heat HeatReady
 
 // init will create a new client with a cookie jar,
 // which will consequently be used in all POST operations
@@ -117,71 +116,34 @@ func timerMessage(msg string, params url.Values) string {
 // processResponse parses the XML response and attempts to
 // respond with requested information or set local variables
 func processResponse(msg string) {
-	log.Printf(msg)
+	// log.Println("VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV")
+	// log.Printf("%s",msg)
+	// log.Println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
 	doc, err := xmlquery.Parse(strings.NewReader(msg))
 	if err != nil {
 		log.Fatal(err)
 	}
 	root := xmlquery.FindOne(doc, "//action-response")
 
-	// log.Println("--------------")
-	// log.Println(root.InnerText())
-	// log.Println("--------------")
-
-	if q := root.SelectElement("//remote-log"); q != nil {
-		
-		log.Println("--------------")
-		log.Println(q.Data)
-		log.Println(q.Attr)
-		// log.Println(q.Attr)
-		for _, a := range q.Attr {
-			log.Println(a)
-			log.Println(a.Name.Local)
-			log.Println(a.Value)
-		}
-		log.Println("--------------")
-	}	
-
-
 	if q := root.SelectElement("//query"); q != nil {
 		Flags()
 	}
-	if l := xmlquery.FindOne(doc, "//action-response/remote-log@send"); l != nil {
-		SendLogs(l.InnerText() == "true")
+
+	if q := xmlquery.FindOne(doc, "//action-response/remote-log@send"); q != nil {
+		SendLogs(q.InnerText() == "true")
 	}
+
 	for i, n := range xmlquery.Find(doc, "//action-response/failure@code") {
-		log.Printf("Error %d: %s\n", i, n.InnerText())
+		log.Printf("[ERROR%d] %s: %s\n", i, n.Attr[0].Value, n.InnerText())
 	}
+
 	if q := root.SelectElement("//heat-ready"); q != nil {
-		log.Println("got heat ready:")
-		// <heat-ready lane-mask= class= round= roundid= heat=/>
-		// var h HeatReady
 		var a ActionResponse
-		// if err := xml.Unmarshal([]byte(msg), &h); err != nil {
-		// 	log.Fatal(err)
-		// }
 		if err := xml.Unmarshal([]byte(msg), &a); err != nil {
 			log.Fatal(err)
 		}
-		log.Println(a)
-		roundID = a.hr.roundID
-		heat = a.hr.heat
-		log.Println(a.hr.class)
-		log.Printf("First Got round %d and heat %d\n", roundID, heat)
-		for _, a := range q.Attr {
-			if a.Name.Local == "roundid" {
-				roundID, err = strconv.Atoi(a.Value)
-				if err != nil{
-					log.Fatal(err)
-				}
-			} else if a.Name.Local == "heat" {
-				heat, err = strconv.Atoi(a.Value)
-				if err != nil{
-					log.Fatal(err)
-				}
-			}
-		}
-		log.Printf("SEcond Got round %d and heat %d\n", roundID, heat)
+		heat = a.Heat
+		log.Printf("Heat %d is ready.\n", heat.Heat)
 	}
 }
 
@@ -237,8 +199,8 @@ func Started() {
 // (i.e., if the heat and roundid values aren't what were expected).
 func Finished() {
 	params := make(url.Values)
-	params.Set("roundid", "")
-	params.Set("heat", "")
+	params.Set("roundid", strconv.Itoa(heat.RoundID))
+	params.Set("heat", strconv.Itoa(heat.Heat))
 	params.Set("lane1", "")
 	params.Set("place1", "")
 	params.Set("lane2", "")
