@@ -12,6 +12,7 @@ import (
 	"strings"
 	// "github.com/antchfx/xpath"
 	"encoding/xml"
+	"fmt"
 	"strconv"
 )
 
@@ -20,6 +21,9 @@ var fullUrl = "http://192.168.0.236/action.php"
 
 // client is our saved "connected" client (that has the cookie)
 var client http.Client
+
+// sendLogs indicates that the derbynet server has asked for logs
+var sendLogs = false
 
 // HeatReady is the XML structure that indicates a race is
 // ready to start.
@@ -116,17 +120,21 @@ func timerMessage(msg string, params url.Values) string {
 // processResponse parses the XML response and attempts to
 // respond with requested information or set local variables
 func processResponse(msg string) {
-	// log.Println("VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV")
-	// log.Printf("%s",msg)
-	// log.Println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+	if sendLogs {
+		log.Println("VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV")
+		log.Printf("%s", msg)
+		log.Println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+	}
 	doc, err := xmlquery.Parse(strings.NewReader(msg))
 	if err != nil {
 		log.Fatal(err)
 	}
+	processed := false
 	root := xmlquery.FindOne(doc, "//action-response")
 
 	if q := root.SelectElement("//query"); q != nil {
 		Flags()
+		processed = true
 	}
 
 	if q := xmlquery.FindOne(doc, "//action-response/remote-log@send"); q != nil {
@@ -135,6 +143,7 @@ func processResponse(msg string) {
 
 	for i, n := range xmlquery.Find(doc, "//action-response/failure@code") {
 		log.Printf("[ERROR%d] %s: %s\n", i, n.Attr[0].Value, n.InnerText())
+		processed = true
 	}
 
 	if q := root.SelectElement("//heat-ready"); q != nil {
@@ -144,14 +153,20 @@ func processResponse(msg string) {
 		}
 		heat = a.Heat
 		log.Printf("Heat %d is ready.\n", heat.Heat)
+		processed = true
+	}
+
+	if !processed {
+		log.Println("VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV")
+		log.Printf("Message Ignored: %s", msg)
+		log.Println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
 	}
 }
 
 // Heartbeat sends the heartbeat message to the server
-func Heartbeat() string {
+func Heartbeat() {
 	msg := timerMessage("HEARTBEAT", nil)
-	log.Printf("heartbeat returned: %s\n", msg)
-	return msg
+	processResponse(msg)
 }
 
 // Hello sends the hello message to the server
@@ -197,18 +212,26 @@ func Started() {
 // heat, etc.
 // The server may reject the reported results if e.g. they don't correspond to the currently-running heat
 // (i.e., if the heat and roundid values aren't what were expected).
-func Finished() {
+func Finished(lane1 float64, lane2 float64, lane3 float64, lane4 float64) {
 	params := make(url.Values)
 	params.Set("roundid", strconv.Itoa(heat.RoundID))
 	params.Set("heat", strconv.Itoa(heat.Heat))
-	params.Set("lane1", "")
-	params.Set("place1", "")
-	params.Set("lane2", "")
-	params.Set("place2", "")
-	params.Set("lane3", "")
-	params.Set("place3", "")
-	params.Set("lane4", "")
-	params.Set("place4", "")
+	if lane1 != 0.0 {
+		params.Set("lane1", fmt.Sprintf("%.5f", lane1))
+	}
+	// params.Set("place1", "")
+	if lane2 != 0.0 {
+		params.Set("lane2", fmt.Sprintf("%.5f", lane2))
+	}
+	// params.Set("place2", "")
+	if lane3 != 0.0 {
+		params.Set("lane3", fmt.Sprintf("%.5f", lane3))
+	}
+	// params.Set("place3", "")
+	if lane4 != 0.0 {
+		params.Set("lane4", fmt.Sprintf("%.5f", lane4))
+	}
+	// params.Set("place4", "")
 	processResponse(timerMessage("FINISHED", params))
 }
 
@@ -217,9 +240,12 @@ func Finished() {
 // POST request body has content-type text/plain type. The server appends the request body text to the
 // logged text captured on the server.
 func SendLogs(en bool) {
-	if en {
-		log.Printf("sending logs...")
-	} else {
-		log.Printf("not sending logs...")
+	if sendLogs != en {
+		sendLogs = en
+		if en {
+			log.Printf("sending logs...")
+		} else {
+			log.Printf("not sending logs...")
+		}
 	}
 }

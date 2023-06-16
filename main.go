@@ -35,8 +35,10 @@ func main() {
 	derbynet.Hello()
 	derbynet.Identified(gitrev)
 
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 2; i++ {
 		derbynet.Heartbeat()
+		derbynet.Started()
 		time.Sleep(time.Second * 5)
+		derbynet.Finished(12.34567890, 15.678901234, 0, 9.99999)
 	}
 }
