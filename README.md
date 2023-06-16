@@ -1,5 +1,5 @@
 # gpio-timer
-A GPIO timer for DerbyNet server (https://derbynet.org/)
+A GPIO timer for DerbyNet server (https://derbynet.org/).
 
 - ![#f03c15](https://placehold.co/15x15/f03c15/f03c15.png) `WORK IN PROGRESS, NO RELEASE`
 ```diff
