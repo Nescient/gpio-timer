@@ -1,6 +1,6 @@
-// gpiod is a wrapper package using warthog618's gpiod to watch specific GPIO devices for
+// gpio is a wrapper package using warthog618's gpiod to watch specific GPIO devices for
 // changes.  this is the main functionality of gpio-timer
-package gpiod
+package gpio
 
 import (
 	"github.com/warthog618/gpiod"
