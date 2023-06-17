@@ -11,13 +11,18 @@ import (
 	"net/url"
 	"strings"
 	// "github.com/antchfx/xpath"
+	"bytes"
 	"encoding/xml"
 	"fmt"
+	"os"
 	"strconv"
 )
 
 // fullUrl is the complete URL to the derbynet action page
 var fullUrl = "http://192.168.0.236/action.php"
+
+// logUrl is the complete URL to the derbynet logging page
+var logUrl = "http://192.168.0.236/post-timer-log.php"
 
 // client is our saved "connected" client (that has the cookie)
 var client http.Client
@@ -129,13 +134,10 @@ func timerMessage(msg string, params url.Values) string {
 // respond with requested information or set local variables
 func processResponse(msg string) {
 	var respMsg ActionResponse
-	if err := xml.Unmarshal([]byte(msg), &a); err != nil {
+	if err := xml.Unmarshal([]byte(msg), &respMsg); err != nil {
 		log.Fatal(err)
 	}
-	if q := root.SelectElement("//heat-ready"); q != nil {
-		heat = respMsg.Heat
-		log.Printf("Heat %d is ready.\n", heat.Heat)
-	}
+
 	SendLogs(respMsg.Log.Send)
 	if sendLogs {
 		log.Println("VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV")
@@ -147,8 +149,12 @@ func processResponse(msg string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	root := xmlquery.FindOne(doc, "//action-response")
+	if q := root.SelectElement("//heat-ready"); q != nil {
+		heat = respMsg.Heat
+		log.Printf("Heat %d is ready.\n", heat.Heat)
+	}
+
 	if q := root.SelectElement("//query"); q != nil {
 		Flags()
 	}
@@ -250,6 +256,45 @@ func Finished(lane1 float64, lane2 float64, lane3 float64, lane4 float64) {
 	processResponse(timerMessage("FINISHED", params))
 }
 
+// logPost is a pointless struct to allow me to create
+// a custom write function for io.Writer
+type logPost struct {
+}
+
+// Write implements a post call for the derbynet logging
+// response is <success>XXXX bytes</success>
+func (l logPost) Write(p []byte) (n int, err error) {
+	size := len(p)
+	reader := bytes.NewReader(p)
+	resp, err := client.Post(logUrl, "text/plain", reader)
+	if err != nil {
+		fmt.Println(err)
+		return size - reader.Len(), err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+		return size, err
+	}
+
+	fmt.Println(string(body))
+
+	doc, err := xmlquery.Parse(strings.NewReader(string(body)))
+	if err != nil {
+		fmt.Println(err)
+		return size, err
+	}
+	root := xmlquery.FindOne(doc, "//success")
+	if root != nil {
+		i := size
+		fmt.Sscanf(root.InnerText(), "%d bytes", &i)
+		return i, nil
+	}
+
+	return size, nil
+}
+
 // SendLogs enables and disables sending log information to the server.
 // If remote logging is active, derby-timer.jar makes POST requests to the post-timer-log.php URL. The
 // POST request body has content-type text/plain type. The server appends the request body text to the
@@ -259,7 +304,9 @@ func SendLogs(en bool) {
 		sendLogs = en
 		if en {
 			log.Printf("sending logs...")
+			log.SetOutput(&logPost{})
 		} else {
+			log.SetOutput(os.Stdout)
 			log.Printf("not sending logs...")
 		}
 	}
