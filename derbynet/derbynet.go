@@ -3,19 +3,18 @@
 package derbynet
 
 import (
+	"bytes"
+	"encoding/xml"
+	"fmt"
 	"github.com/antchfx/xmlquery"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
-	"strings"
-	// "github.com/antchfx/xpath"
-	"bytes"
-	"encoding/xml"
-	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // fullUrl is the complete URL to the derbynet action page
