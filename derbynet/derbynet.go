@@ -45,11 +45,19 @@ type HeatReady struct {
 	Heat int `xml:"heat,attr"`
 }
 
+// RemoteLog is the XML structure for the logging node
+// When true, the timer should post to the post-timer-log.php URL
+type RemoteLog struct {
+	XMLName xml.Name `xml:"remote-log"`
+	Send    bool     `xml:"send,attr"`
+}
+
 // ActionResponse is the XML structure that represents the response
 // from the derbynet server
 type ActionResponse struct {
 	XMLName xml.Name  `xml:"action-response"`
 	Heat    HeatReady `xml:"heat-ready"`
+	Log     RemoteLog `xml:"remote-log"`
 }
 
 // the last received HeatReady response
@@ -120,46 +128,53 @@ func timerMessage(msg string, params url.Values) string {
 // processResponse parses the XML response and attempts to
 // respond with requested information or set local variables
 func processResponse(msg string) {
+	var respMsg ActionResponse
+	if err := xml.Unmarshal([]byte(msg), &a); err != nil {
+		log.Fatal(err)
+	}
+	if q := root.SelectElement("//heat-ready"); q != nil {
+		heat = respMsg.Heat
+		log.Printf("Heat %d is ready.\n", heat.Heat)
+	}
+	SendLogs(respMsg.Log.Send)
 	if sendLogs {
 		log.Println("VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV")
 		log.Printf("%s", msg)
 		log.Println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
 	}
+
 	doc, err := xmlquery.Parse(strings.NewReader(msg))
 	if err != nil {
 		log.Fatal(err)
 	}
-	processed := false
-	root := xmlquery.FindOne(doc, "//action-response")
 
+	root := xmlquery.FindOne(doc, "//action-response")
 	if q := root.SelectElement("//query"); q != nil {
 		Flags()
-		processed = true
-	}
-
-	if q := xmlquery.FindOne(doc, "//action-response/remote-log@send"); q != nil {
-		SendLogs(q.InnerText() == "true")
 	}
 
 	for i, n := range xmlquery.Find(doc, "//action-response/failure@code") {
 		log.Printf("[ERROR%d] %s: %s\n", i, n.Attr[0].Value, n.InnerText())
-		processed = true
 	}
 
-	if q := root.SelectElement("//heat-ready"); q != nil {
-		var a ActionResponse
-		if err := xml.Unmarshal([]byte(msg), &a); err != nil {
-			log.Fatal(err)
-		}
-		heat = a.Heat
-		log.Printf("Heat %d is ready.\n", heat.Heat)
-		processed = true
+	// unused messages
+	if q := root.SelectElement("//success"); q != nil {
+		log.Println("last command successful")
 	}
-
-	if !processed {
-		log.Println("VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV")
-		log.Printf("Message Ignored: %s", msg)
-		log.Println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+	if q := root.SelectElement("//abort"); q != nil {
+		log.Println("abort message ignored")
+	}
+	if q := root.SelectElement("//remote-start"); q != nil {
+		log.Println("remote-start message ignored")
+	}
+	if q := root.SelectElement("//assign-flag"); q != nil {
+		log.Println("assign-flag message ignored")
+	}
+	if q := root.SelectElement("//assign-port"); q != nil {
+		log.Println("assign-port message ignored")
+	}
+	if q := root.SelectElement("//assign-device"); q != nil {
+		log.Println("assign-device message ignored")
 	}
 }
 
