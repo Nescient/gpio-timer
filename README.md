@@ -11,3 +11,12 @@ This project uses golang to send timer messages to the derbynet server applicati
 
 ## Libre Computer Wiring
 https://hub.libre.computer/t/libre-computer-wiring-tool/40
+
+
+## DerbyNet
+- https://derbynet.org/builds/Installation-%20Windows.pdf
+- http://drakedev.com/pinewood/
+- https://derbynet.org/builds/docs/Developers-%20Timer%20Messages.pdf
+
+## GPIO
+- https://stackoverflow.com/questions/51310506/using-c-libgpiod-library-how-can-i-set-gpio-lines-to-be-outputs-and-manipulat
