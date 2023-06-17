@@ -3,6 +3,7 @@ package main
 import (
 	_ "embed"
 	"github.com/Nescient/gpio-timer/derbynet"
+	"github.com/Nescient/gpio-timer/gpio"
 	"log"
 	"os"
 	"runtime/debug"
@@ -41,4 +42,13 @@ func main() {
 		time.Sleep(time.Second * 5)
 		derbynet.Finished(12.34567890, 15.678901234, 0, 9.99999)
 	}
+
+	x, y := gpio.GetGateTime()
+	log.Printf("gate time is %v, %d\n", x, y)
+
+	l, err := gpio.Arm()
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println(l)
 }
