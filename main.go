@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"runtime/debug"
+	"sync"
 	"time"
 )
 
@@ -36,7 +37,7 @@ func main() {
 	derbynet.Hello()
 	derbynet.Identified(gitrev)
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 1; i++ {
 		derbynet.Heartbeat()
 		derbynet.Started()
 		time.Sleep(time.Second * 5)
@@ -46,9 +47,13 @@ func main() {
 	x, y := gpio.GetGateTime()
 	log.Printf("gate time is %v, %d\n", x, y)
 
-	l, err := gpio.Arm()
+	var wg = &sync.WaitGroup{}
+	l, err := gpio.Arm(wg)
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Println(l)
+
+	// wg.Add(1)
+	wg.Wait()
 }
