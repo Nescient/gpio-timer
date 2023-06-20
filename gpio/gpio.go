@@ -64,7 +64,25 @@ var lane4Gpio = 21
 var startTime time.Duration
 var startCount hrtime.Count
 
-var waitGroup *sync.WaitGroup
+var waitStart sync.WaitGroup
+var waitLanes sync.WaitGroup
+
+// type DerbyTimer struct {
+//    startChip = "gpiochip1"
+// laneChip = "gpiochip2"
+// startGpio = 28
+// lane1Gpio = 24
+// lane2Gpio = 25
+// lane3Gpio = 20
+// lane4Gpio = 21
+// waitGroup sync.WaitGroup
+// StartTime time.Duration
+// StartCount hrtime.Count
+// }
+
+// func (this DerbyTimer) Arm() err error {
+// this.waitGroup.Add(1)
+// }
 
 // init will
 func init() {
@@ -79,15 +97,18 @@ func setStartTime(evt gpiod.LineEvent) {
 	startCount = hrtime.TSC()
 	log.Printf("got event %d, expecting %d\n", gpioNum, startGpio)
 	log.Printf("got gate start at %v, %v, %d\n", time, startTime, startCount)
-	waitGroup.Done()
+	waitStart.Done()
 }
 
-func Arm(wg *sync.WaitGroup) (*gpiod.Line, error) {
-	waitGroup = wg
-	waitGroup.Add(1)
+func Arm() (*gpiod.Line, error) {
+	waitStart.Add(1)
 	// gpiod.WithBothEdges and then we wont care really ?
 	return gpiod.RequestLine(startChip, startGpio, gpiod.AsInput,
 		gpiod.WithEventHandler(setStartTime), gpiod.LineEdgeRising)
+}
+
+func WaitForStart() {
+	waitStart.Wait()
 }
 
 // GetGateTime will watch the start GPIO and return a high-precision

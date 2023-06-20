@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 	"runtime/debug"
-	"sync"
+	// "sync"
 	"time"
 )
 
@@ -37,23 +37,54 @@ func main() {
 	derbynet.Hello()
 	derbynet.Identified(gitrev)
 
-	for i := 0; i < 1; i++ {
-		derbynet.Heartbeat()
-		derbynet.Started()
-		time.Sleep(time.Second * 5)
-		derbynet.Finished(12.34567890, 15.678901234, 0, 9.99999)
+	// timer heartbeats
+	isQuitting := false
+	go func() {
+		for !isQuitting {
+			derbynet.Heartbeat()
+			time.Sleep(time.Second * 5)
+		}
+		derbynet.Terminate()
+	}()
+
+	// main race loop
+	for isQuitting == false {
+		log.Println("Waiting for heat...")
+		if derbynet.WaitForHeat() {
+			l, err := gpio.Arm()
+			if err != nil {
+				// log.Fatal(err)
+				log.Println(err)
+			}
+			// wait for gpio start gate
+			gpio.WaitForStart()
+			time.Sleep(time.Second * 2)
+			// wait
+			derbynet.Started()
+			// wait for gpio all lanes done
+			time.Sleep(time.Second * 5)
+			//wait
+			derbynet.Finished(12.34567890, 15.678901234, 0, 9.99999)
+			log.Println(l)
+		}
 	}
 
 	x, y := gpio.GetGateTime()
 	log.Printf("gate time is %v, %d\n", x, y)
 
-	var wg = &sync.WaitGroup{}
-	l, err := gpio.Arm(wg)
+	// var wg = &sync.WaitGroup{}
+	l, err := gpio.Arm()
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Println(l)
 
 	// wg.Add(1)
-	wg.Wait()
+	// wg.Wait()
+	// gpio.WaitForStart()
+
+	isQuitting = true
+	log.Println("Terminating...")
+	derbynet.Terminate()
+	time.Sleep(time.Second * 2)
 }
