@@ -18,5 +18,9 @@ https://hub.libre.computer/t/libre-computer-wiring-tool/40
 - http://drakedev.com/pinewood/
 - https://derbynet.org/builds/docs/Developers-%20Timer%20Messages.pdf
 
+<!-- RaceCoordinator, password "doyourbest" (without the quotes): this role can do anything at all. -->
+<!-- RaceCrew, password "murphy" (as in Don Murphy, not Murphy’s Law): this role can do things -->
+<!-- like check racers in, but not erase the database -->
+
 ## GPIO
 - https://stackoverflow.com/questions/51310506/using-c-libgpiod-library-how-can-i-set-gpio-lines-to-be-outputs-and-manipulat
