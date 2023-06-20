@@ -15,6 +15,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // fullUrl is the complete URL to the derbynet action page
@@ -67,6 +68,9 @@ type ActionResponse struct {
 // the last received HeatReady response
 var heat HeatReady
 
+// an efficient way to wait for a heat
+var waitHeat chan int
+
 // init will create a new client with a cookie jar,
 // which will consequently be used in all POST operations
 func init() {
@@ -77,6 +81,7 @@ func init() {
 	client = http.Client{
 		Jar: jar,
 	}
+	waitHeat = make(chan int, 1)
 }
 
 // GetCookie will post to the derby net URL, and log in as the
@@ -123,6 +128,7 @@ func timerMessage(msg string, params url.Values) string {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		log.Println("Error reading response body.")
 		log.Fatal(err)
 	}
 
@@ -152,6 +158,7 @@ func processResponse(msg string) {
 	if q := root.SelectElement("//heat-ready"); q != nil {
 		heat = respMsg.Heat
 		log.Printf("Heat %d is ready.\n", heat.Heat)
+		waitHeat <- heat.Heat
 	}
 
 	if q := root.SelectElement("//query"); q != nil {
@@ -167,7 +174,8 @@ func processResponse(msg string) {
 		log.Println("last command successful")
 	}
 	if q := root.SelectElement("//abort"); q != nil {
-		log.Println("abort message ignored")
+		heat.Heat = 0
+		waitHeat <- heat.Heat
 	}
 	if q := root.SelectElement("//remote-start"); q != nil {
 		log.Println("remote-start message ignored")
@@ -215,6 +223,17 @@ func Flags() {
 	params.Set("ports", "")
 	params.Set("device-github.com Nescient gpio-timer", "GPIO Timer")
 	processResponse(timerMessage("FLAGS", params))
+}
+
+// WaitForHeat waits until the next heat has been started by the server
+// it uses the heat.Heat (unique ID) to check if a heat is valid
+func WaitForHeat() bool {
+	select {
+	case <-waitHeat:
+		return heat.Heat > 0
+	case <-time.After(10 * time.Second):
+		return false
+	}
 }
 
 // Started sends a message to the server indicating that the start gate has opened
@@ -309,4 +328,14 @@ func SendLogs(en bool) {
 			log.Printf("not sending logs...")
 		}
 	}
+}
+
+// Terminate indicates that this timer is terminating
+func Terminate() {
+	heat.Heat = 0
+	waitHeat <- heat.Heat
+	params := make(url.Values)
+	params.Set("detectable", "0")
+	params.Set("error", "GPIO Timer is terminating.  Sorry!")
+	timerMessage("MALFUNCTION", params)
 }
