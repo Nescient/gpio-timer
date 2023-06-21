@@ -61,11 +61,20 @@ var lane2Gpio = 25
 var lane3Gpio = 20
 var lane4Gpio = 21
 
-var startTime time.Duration
-var startCount hrtime.Count
+type Timestamp struct {
+	Time     time.Duration
+	Count    hrtime.Count
+	GpioTime time.Duration
+}
+
+// var startTime time.Duration
+// var startCount hrtime.Count
+var startTime Timestamp
 
 var waitStart sync.WaitGroup
 var waitLanes sync.WaitGroup
+
+var laneTimes = [4]Timestamp{}
 
 // type DerbyTimer struct {
 //    startChip = "gpiochip1"
@@ -89,26 +98,80 @@ func init() {
 
 }
 
+func clearLanes() {
+	laneTimes = [4]Timestamp{Timestamp{0, 0, 0}, Timestamp{0, 0, 0}, Timestamp{0, 0, 0}, Timestamp{0, 0, 0}}
+}
+
 // setStartTime sets the time that the gate started
 func setStartTime(evt gpiod.LineEvent) {
 	gpioNum := evt.Offset // an int
 	time := evt.Timestamp // time.Duration
-	startTime = hrtime.Now()
-	startCount = hrtime.TSC()
+	startTime.Time = hrtime.Now()
+	startTime.Count = hrtime.TSC()
+	startTime.GpioTime = evt.Timestamp
 	log.Printf("got event %d, expecting %d\n", gpioNum, startGpio)
-	log.Printf("got gate start at %v, %v, %d\n", time, startTime, startCount)
+	log.Printf("got gate start at %v, %v, %d\n", time, startTime.Time, startTime.Count)
 	waitStart.Done()
 }
 
-func Arm() (*gpiod.Line, error) {
+// setLaneTime sets the time that a given lane completes
+func setLaneTime(evt gpiod.LineEvent) {
+	switch gpioNum := evt.Offset; gpioNum {
+	case lane1Gpio:
+		laneTimes[0] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+	case lane2Gpio:
+		laneTimes[1] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+	case lane3Gpio:
+		laneTimes[2] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+	case lane4Gpio:
+		laneTimes[3] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+	default:
+		log.Printf("unknown lane event %d\n", gpioNum)
+	}
+	// log.Printf("got event %d, expecting %d\n", gpioNum, startGpio)
+	// log.Printf("got gate start at %v, %v, %d\n", time, startTime, startCount)
+	waitLanes.Done()
+}
+
+func ArmStart() (*gpiod.Line, error) {
+	clearLanes()
 	waitStart.Add(1)
 	// gpiod.WithBothEdges and then we wont care really ?
 	return gpiod.RequestLine(startChip, startGpio, gpiod.AsInput,
 		gpiod.WithEventHandler(setStartTime), gpiod.LineEdgeRising)
 }
 
+func ArmLanes() (*gpiod.Lines, error) {
+	waitLanes.Add(4)
+	// gpiod.WithBothEdges and then we wont care really ?
+	return gpiod.RequestLines(laneChip, []int{lane1Gpio, lane2Gpio, lane3Gpio, lane4Gpio},
+		gpiod.AsInput, gpiod.WithEventHandler(setLaneTime), gpiod.LineEdgeRising)
+}
+
 func WaitForStart() {
 	waitStart.Wait()
+}
+
+func deltaTimes(start Timestamp, end Timestamp) float64 {
+	if end.Time < start.Time {
+		return 0.0
+	}
+	// delta1 := end.Time.Sub(start.Time).Seconds()
+	delta1 := end.Time.Seconds() - start.Time.Seconds()
+	delta2 := (end.Count - start.Count).ApproxDuration()
+	delta3 := end.GpioTime.Seconds() - start.GpioTime.Seconds()
+	log.Printf("delta times %f, %f, %f \n", delta1, delta2, delta3)
+	return delta1
+}
+
+func WaitForLanes() (times [4]float64) {
+	waitLanes.Wait()
+	for i, _ := range laneTimes {
+		times[i] = deltaTimes(startTime, laneTimes[i])
+	}
+	return
+	// times[0] = deltaTimes(startTime, laneTimes[0].Time)
+	// times[0] = deltaTimes(startTime, laneTimes[0].Time)
 }
 
 // GetGateTime will watch the start GPIO and return a high-precision
