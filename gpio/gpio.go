@@ -53,9 +53,9 @@ import (
 // 39      GND     GND     GND     GND     GND     GND     GND
 // 40      0       27      27      GPIO0_D3        V9      SPDIF_TX_M0     SPDIF_TX_M0_d
 
-var startChip = "gpiochip1"
+var startChip = "gpiochip3"
 var laneChip = "gpiochip2"
-var startGpio = 28
+var startGpio = 4
 var lane1Gpio = 24
 var lane2Gpio = 25
 var lane3Gpio = 20
@@ -138,14 +138,14 @@ func ArmStart() (*gpiod.Line, error) {
 	waitStart.Add(1)
 	// gpiod.WithBothEdges and then we wont care really ?
 	return gpiod.RequestLine(startChip, startGpio, gpiod.AsInput,
-		gpiod.WithEventHandler(setStartTime), gpiod.LineEdgeRising)
+		gpiod.WithEventHandler(setStartTime), gpiod.LineEdgeFalling)
 }
 
 func ArmLanes() (*gpiod.Lines, error) {
 	waitLanes.Add(4)
 	// gpiod.WithBothEdges and then we wont care really ?
 	return gpiod.RequestLines(laneChip, []int{lane1Gpio, lane2Gpio, lane3Gpio, lane4Gpio},
-		gpiod.AsInput, gpiod.WithEventHandler(setLaneTime), gpiod.LineEdgeRising)
+		gpiod.AsInput, gpiod.WithEventHandler(setLaneTime), gpiod.LineEdgeFalling)
 }
 
 func WaitForStart() {
