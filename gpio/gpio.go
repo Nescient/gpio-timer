@@ -172,8 +172,11 @@ func deltaTimes(start Timestamp, end Timestamp) float64 {
 	}
 	// delta1 := end.Time.Sub(start.Time).Seconds()
 	delta1 := end.Time.Seconds() - start.Time.Seconds()
+	delta2 := 0.0
 	log.Printf("delta TSC is %d, %d\n", start.Count, end.Count)
-	delta2 := (end.Count - start.Count).ApproxDuration().Seconds()
+	if start.Count != 0 && end.Count != 0 {
+		delta2 = (end.Count - start.Count).ApproxDuration().Seconds()
+	}
 	delta3 := end.GpioTime.Seconds() - start.GpioTime.Seconds()
 	log.Printf("delta times %f, %f, %f \n", delta1, delta2, delta3)
 	return delta1
