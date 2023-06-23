@@ -69,7 +69,7 @@ func main() {
 			laneTimes := gpio.WaitForLanes()
 			ll.Close()
 			derbynet.Finished(laneTimes[0], laneTimes[1], laneTimes[2], laneTimes[3])
-			log.Println("Times %f %f %f %f", laneTimes[0], laneTimes[1], laneTimes[2], laneTimes[3])
+			log.Printf("Times %f %f %f %f\n", laneTimes[0], laneTimes[1], laneTimes[2], laneTimes[3])
 		}
 	}
 

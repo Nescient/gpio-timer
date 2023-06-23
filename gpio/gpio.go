@@ -63,7 +63,6 @@ var lane4Gpio = 21
 
 type Timestamp struct {
 	Time     time.Duration
-	Count    hrtime.Count
 	GpioTime time.Duration
 }
 
@@ -99,7 +98,7 @@ func init() {
 }
 
 func clearLanes() {
-	laneTimes = [4]Timestamp{Timestamp{0, 0, 0}, Timestamp{0, 0, 0}, Timestamp{0, 0, 0}, Timestamp{0, 0, 0}}
+	laneTimes = [4]Timestamp{Timestamp{0, 0}, Timestamp{0, 0}, Timestamp{0, 0}, Timestamp{0, 0}}
 }
 
 // setStartTime sets the time that the gate started
@@ -107,10 +106,9 @@ func setStartTime(evt gpiod.LineEvent) {
 	gpioNum := evt.Offset // an int
 	time := evt.Timestamp // time.Duration
 	startTime.Time = hrtime.Now()
-	startTime.Count = hrtime.TSC()
 	startTime.GpioTime = evt.Timestamp
 	log.Printf("got event %d, expecting %d\n", gpioNum, startGpio)
-	log.Printf("got gate start at %v, %v, %d\n", time, startTime.Time, startTime.Count)
+	log.Printf("got gate start at %v, %v\n", time, startTime.Time)
 	waitStart.Done()
 }
 
@@ -119,23 +117,23 @@ func setLaneTime(evt gpiod.LineEvent) {
 	log.Printf("got lane event %d\n", evt.Offset)
 	switch gpioNum := evt.Offset; gpioNum {
 	case lane1Gpio:
-		if laneTimes[0].Count == 0 {
-			laneTimes[0] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+		if laneTimes[0].Time == 0 {
+			laneTimes[0] = Timestamp{hrtime.Now(), evt.Timestamp}
 			waitLanes.Done()
 		}
 	case lane2Gpio:
-		if laneTimes[1].Count == 0 {
-			laneTimes[1] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+		if laneTimes[1].Time == 0 {
+			laneTimes[1] = Timestamp{hrtime.Now(), evt.Timestamp}
 			waitLanes.Done()
 		}
 	case lane3Gpio:
-		if laneTimes[2].Count == 0 {
-			laneTimes[2] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+		if laneTimes[2].Time == 0 {
+			laneTimes[2] = Timestamp{hrtime.Now(), evt.Timestamp}
 			waitLanes.Done()
 		}
 	case lane4Gpio:
-		if laneTimes[3].Count == 0 {
-			laneTimes[3] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+		if laneTimes[3].Time == 0 {
+			laneTimes[3] = Timestamp{hrtime.Now(), evt.Timestamp}
 			waitLanes.Done()
 		}
 	default:
@@ -172,13 +170,8 @@ func deltaTimes(start Timestamp, end Timestamp) float64 {
 	}
 	// delta1 := end.Time.Sub(start.Time).Seconds()
 	delta1 := end.Time.Seconds() - start.Time.Seconds()
-	delta2 := 0.0
-	log.Printf("delta TSC is %d, %d\n", start.Count, end.Count)
-	if start.Count != 0 && end.Count != 0 {
-		delta2 = (end.Count - start.Count).ApproxDuration().Seconds()
-	}
 	delta3 := end.GpioTime.Seconds() - start.GpioTime.Seconds()
-	log.Printf("delta times %f, %f, %f \n", delta1, delta2, delta3)
+	log.Printf("delta times %f, %f \n", delta1, delta3)
 	return delta1
 }
 
