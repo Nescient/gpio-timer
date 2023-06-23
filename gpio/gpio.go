@@ -116,6 +116,7 @@ func setStartTime(evt gpiod.LineEvent) {
 
 // setLaneTime sets the time that a given lane completes
 func setLaneTime(evt gpiod.LineEvent) {
+	log.Printf("got lane event %d\n", gpioNum)
 	switch gpioNum := evt.Offset; gpioNum {
 	case lane1Gpio:
 		laneTimes[0] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}

@@ -56,6 +56,7 @@ func main() {
 				// log.Fatal(err)
 				log.Println(err)
 			}
+			log.Println("Waiting for start gate...")
 			gpio.WaitForStart()
 			l.Close()
 			derbynet.Started()
@@ -64,10 +65,11 @@ func main() {
 				// log.Fatal(err)
 				log.Println(err)
 			}
+			log.Println("Waiting for lanes...")
 			laneTimes := gpio.WaitForLanes()
 			ll.Close()
 			derbynet.Finished(laneTimes[0], laneTimes[1], laneTimes[2], laneTimes[3])
-			log.Println(l)
+			log.Println("Times %f %f %f %f", laneTimes[0], laneTimes[1], laneTimes[2], laneTimes[3])
 		}
 	}
 
