@@ -119,13 +119,21 @@ func setLaneTime(evt gpiod.LineEvent) {
 	log.Printf("got lane event %d\n", evt.Offset)
 	switch gpioNum := evt.Offset; gpioNum {
 	case lane1Gpio:
-		laneTimes[0] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+		if laneTimes[0].Count == 0 {
+			laneTimes[0] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+		}
 	case lane2Gpio:
-		laneTimes[1] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+		if laneTimes[1].Count == 0 {
+			laneTimes[1] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+		}
 	case lane3Gpio:
-		laneTimes[2] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+		if laneTimes[2].Count == 0 {
+			laneTimes[2] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+		}
 	case lane4Gpio:
-		laneTimes[3] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+		if laneTimes[3].Count == 0 {
+			laneTimes[3] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+		}
 	default:
 		log.Printf("unknown lane event %d\n", gpioNum)
 	}
@@ -143,6 +151,7 @@ func ArmStart() (*gpiod.Line, error) {
 }
 
 func ArmLanes() (*gpiod.Lines, error) {
+	clearLanes()
 	waitLanes.Add(4)
 	// gpiod.WithBothEdges and then we wont care really ?
 	return gpiod.RequestLines(laneChip, []int{lane1Gpio, lane2Gpio, lane3Gpio, lane4Gpio},
@@ -159,6 +168,7 @@ func deltaTimes(start Timestamp, end Timestamp) float64 {
 	}
 	// delta1 := end.Time.Sub(start.Time).Seconds()
 	delta1 := end.Time.Seconds() - start.Time.Seconds()
+	log.Printf("delta TSC is %d, %d\n", start.Count, end.Count)
 	delta2 := (end.Count - start.Count).ApproxDuration()
 	delta3 := end.GpioTime.Seconds() - start.GpioTime.Seconds()
 	log.Printf("delta times %f, %f, %f \n", delta1, delta2, delta3)
