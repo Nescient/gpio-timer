@@ -121,25 +121,29 @@ func setLaneTime(evt gpiod.LineEvent) {
 	case lane1Gpio:
 		if laneTimes[0].Count == 0 {
 			laneTimes[0] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+			waitLanes.Done()
 		}
 	case lane2Gpio:
 		if laneTimes[1].Count == 0 {
 			laneTimes[1] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+			waitLanes.Done()
 		}
 	case lane3Gpio:
 		if laneTimes[2].Count == 0 {
 			laneTimes[2] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+			waitLanes.Done()
 		}
 	case lane4Gpio:
 		if laneTimes[3].Count == 0 {
 			laneTimes[3] = Timestamp{hrtime.Now(), hrtime.TSC(), evt.Timestamp}
+			waitLanes.Done()
 		}
 	default:
 		log.Printf("unknown lane event %d\n", gpioNum)
 	}
 	// log.Printf("got event %d, expecting %d\n", gpioNum, startGpio)
 	// log.Printf("got gate start at %v, %v, %d\n", time, startTime, startCount)
-	waitLanes.Done()
+	// waitLanes.Done()
 }
 
 func ArmStart() (*gpiod.Line, error) {
@@ -169,7 +173,7 @@ func deltaTimes(start Timestamp, end Timestamp) float64 {
 	// delta1 := end.Time.Sub(start.Time).Seconds()
 	delta1 := end.Time.Seconds() - start.Time.Seconds()
 	log.Printf("delta TSC is %d, %d\n", start.Count, end.Count)
-	delta2 := (end.Count - start.Count).ApproxDuration()
+	delta2 := (end.Count - start.Count).ApproxDuration().Seconds()
 	delta3 := end.GpioTime.Seconds() - start.GpioTime.Seconds()
 	log.Printf("delta times %f, %f, %f \n", delta1, delta2, delta3)
 	return delta1
