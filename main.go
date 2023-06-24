@@ -33,11 +33,15 @@ func main() {
 	log.Println(whoAmI)
 	log.Println(gitrev)
 
+	log.Println("Getting cookie...")
 	derbynet.GetCookie()
+	log.Println("Saying hello...")
 	derbynet.Hello()
+	log.Println("Indentifying...")
 	derbynet.Identified(gitrev)
 
 	// timer heartbeats
+	log.Println("Establishing heartbeats...")
 	isQuitting := false
 	go func() {
 		for !isQuitting {
@@ -48,6 +52,7 @@ func main() {
 	}()
 
 	// main race loop
+	log.Println("Starting main race loop...")
 	for isQuitting == false {
 		log.Println("Waiting for heat...")
 		if derbynet.WaitForHeat() {
