@@ -74,21 +74,21 @@ func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 
 // Wait will wait until the handler is called or a set
 // amount of time expires
-func (this *GpioTime) Wait(seconds int) {
-	pending := start.Pending
-	if seconds > 0 {
+func (this *GpioTime) Wait(timeout time.Duration) {
+	pending := this.Pending
+	if timeout > 0 {
 		for pending {
 			select {
-			case <-start.Channel:
+			case <-this.Channel:
 				pending = false
-			case <-time.After(seconds * time.Second):
+			case <-time.After(timeout):
 				return
 			}
 		}
 	} else {
 		for pending {
 			select {
-			case <-start.Channel:
+			case <-this.Channel:
 				pending = false
 			}
 		}
