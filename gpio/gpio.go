@@ -60,6 +60,7 @@ func (this GpioTime) gpioHandler(evt gpiod.LineEvent) {
 	if evt.Offset == this.Lane {
 		this.Pending = false
 		this.Time = evt.Timestamp
+		log.Printf("Received GPIO event at %v\n", this.Time)
 		this.Channel <- 1
 	} else {
 		log.Printf("Received unknown GPIO event %d\n", evt.Offset)
@@ -129,6 +130,7 @@ func WaitForStart(start *GpioTime) {
 		}
 	}
 	start.Close()
+	log.Printf("wait for statr %v\n", start.Time)
 }
 
 // deltaTimes calculates the difference betwene two timestamps
