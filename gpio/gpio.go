@@ -142,7 +142,12 @@ func deltaTimes(start GpioTime, end GpioTime) float64 {
 // WaitForLanes waits until all 4 lanes have triggered and returns
 // the time difference for each lane
 func WaitForLanes(lanes [4]GpioTime) {
-	done := [4]bool{lanes[0].Pending, lanes[1].Pending, lanes[2].Pending, lanes[3].Pending}
+	done := [4]bool{
+		!lanes[0].Pending,
+		!lanes[1].Pending,
+		!lanes[2].Pending,
+		!lanes[3].Pending,
+	}
 	for !done[0] && !done[1] && !done[2] && !done[3] {
 		select {
 		case <-lanes[0].Channel:
