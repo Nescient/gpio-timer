@@ -51,13 +51,12 @@ func main() {
 	for isQuitting == false {
 		log.Println("Waiting for heat...")
 		if derbynet.WaitForHeat() {
-			l, err := gpio.ArmStart()
+			start, err := gpio.ArmStart()
 			if err != nil {
 				log.Fatal(err)
 			}
 			log.Println("Waiting for start gate...")
-			gpio.WaitForStart()
-			l.Close()
+			gpio.WaitForStart(&start)
 			derbynet.Started()
 			ll, err := gpio.ArmLanes()
 			if err != nil {
