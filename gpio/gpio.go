@@ -41,6 +41,20 @@ type GpioTime struct {
 	Channel chan int
 }
 
+// New initializes the structure to default values
+func (this GpioTime) New(chip string, offset int) {
+	this.Close()
+	this = GpioTime{chip, offset, 0, true, nil, make(chan int)}
+}
+
+// Arm will register the GPIO for a falling edge event
+func (this GpioTime) Arm() (err error) {
+	this.Pending = true
+	this.Line, err = gpiod.RequestLine(this.Chip, this.Lane, gpiod.AsInput,
+		gpiod.WithEventHandler(this.gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
+	return
+}
+
 // gpioHandler handles a GPIO event for a given GpioTime struct
 func (this GpioTime) gpioHandler(evt gpiod.LineEvent) {
 	if evt.Offset == this.Lane {
@@ -53,15 +67,12 @@ func (this GpioTime) gpioHandler(evt gpiod.LineEvent) {
 }
 
 // Close will close any open GPIO lanes for the GpioTime struct
+// as well as the channel
 func (this GpioTime) Close() {
 	if this.Line != nil {
 		this.Line.Close()
 	}
-}
-
-// New initializes the structure to default values
-func (this GpioTime) New(chip string, offset int) {
-	this = GpioTime{chip, offset, 0, true, nil, make(chan int)}
+	close(this.Channel)
 }
 
 // createLanes initializes an array of GpioTime structures
@@ -132,7 +143,7 @@ func deltaTimes(start GpioTime, end GpioTime) float64 {
 // the time difference for each lane
 func WaitForLanes(lanes [4]GpioTime) {
 	done := [4]bool{lanes[0].Pending, lanes[1].Pending, lanes[2].Pending, lanes[3].Pending}
-	for !done[0] || !done[1] || !done[2] || !done[3] {
+	for !done[0] && !done[1] && !done[2] && !done[3] {
 		select {
 		case <-lanes[0].Channel:
 			lanes[0].Close()
