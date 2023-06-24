@@ -137,16 +137,21 @@ func WaitForLanes(lanes [4]GpioTime) {
 		case <-lanes[0].Channel:
 			lanes[0].Close()
 			done[0] = true
+			log.Println("Lane 0 done.")
 		case <-lanes[1].Channel:
 			lanes[1].Close()
 			done[1] = true
+			log.Println("Lane 1 done.")
 		case <-lanes[2].Channel:
 			lanes[2].Close()
 			done[2] = true
+			log.Println("Lane 2 done.")
 		case <-lanes[3].Channel:
 			lanes[3].Close()
 			done[3] = true
+			log.Println("Lane 3 done.")
 		case <-time.After(20 * time.Second):
+			log.Println("Lanes have timed out.")
 			for i, _ := range done {
 				done[i] = true
 			}
