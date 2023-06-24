@@ -53,8 +53,7 @@ func main() {
 		if derbynet.WaitForHeat() {
 			l, err := gpio.ArmStart()
 			if err != nil {
-				// log.Fatal(err)
-				log.Println(err)
+				log.Fatal(err)
 			}
 			log.Println("Waiting for start gate...")
 			gpio.WaitForStart()
@@ -62,8 +61,7 @@ func main() {
 			derbynet.Started()
 			ll, err := gpio.ArmLanes()
 			if err != nil {
-				// log.Fatal(err)
-				log.Println(err)
+				log.Fatal(err)
 			}
 			log.Println("Waiting for lanes...")
 			laneTimes := gpio.WaitForLanes()
@@ -72,20 +70,6 @@ func main() {
 			log.Printf("Times %f %f %f %f\n", laneTimes[0], laneTimes[1], laneTimes[2], laneTimes[3])
 		}
 	}
-
-	x, y := gpio.GetGateTime()
-	log.Printf("gate time is %v, %d\n", x, y)
-
-	// var wg = &sync.WaitGroup{}
-	// l, err := gpio.Arm()
-	// if err != nil {
-	// log.Fatal(err)
-	// }
-	// log.Println(l)
-
-	// wg.Add(1)
-	// wg.Wait()
-	// gpio.WaitForStart()
 
 	isQuitting = true
 	log.Println("Terminating...")
