@@ -87,8 +87,10 @@ func createLanes() (lanes [4]GpioTime) {
 }
 
 // ArmStart sets up the interrupt handler for the start GPIO line
-func ArmStart() (start GpioTime, err error) {
-	start = GpioTime{startChip, startGpio, 0, true, nil, make(chan int)}
+func ArmStart() (start *GpioTime, err error) {
+	start = new(GpioTime)
+	start.New(start.Chip, start.Lane)
+	//{startChip, startGpio, 0, true, nil, make(chan int)}
 	start.Line, err = gpiod.RequestLine(start.Chip, start.Lane, gpiod.AsInput,
 		gpiod.WithEventHandler(start.gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
 	return
@@ -134,7 +136,7 @@ func WaitForStart(start *GpioTime) {
 }
 
 // deltaTimes calculates the difference betwene two timestamps
-func deltaTimes(start GpioTime, end GpioTime) float64 {
+func deltaTimes(start *GpioTime, end GpioTime) float64 {
 	if end.Pending || start.Pending {
 		return 0.0
 	}
@@ -183,7 +185,7 @@ func WaitForLanes(lanes [4]GpioTime) {
 
 // GetTimes returns the difference between a set of lanes and start time
 // GpioTime structures
-func GetTimes(start GpioTime, lanes [4]GpioTime) (times [4]float64) {
+func GetTimes(start *GpioTime, lanes [4]GpioTime) (times [4]float64) {
 	for i, _ := range times {
 		times[i] = deltaTimes(start, lanes[i])
 	}
