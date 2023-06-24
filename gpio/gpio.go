@@ -72,25 +72,27 @@ func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 	}
 }
 
-// Wait will wait until the handler is called or a set
-// amount of time expires
-func (this *GpioTime) Wait(timeout time.Duration) {
+// WaitForever will wait until the handler is called
+func (this *GpioTime) WaitForever() {
 	pending := this.Pending
-	if timeout > 0 {
-		for pending {
-			select {
-			case <-this.Channel:
-				pending = false
-			case <-time.After(timeout):
-				return
-			}
+	for pending {
+		select {
+		case <-this.Channel:
+			pending = false
 		}
-	} else {
-		for pending {
-			select {
-			case <-this.Channel:
-				pending = false
-			}
+	}
+}
+
+// WaitFor will wait until the handler is called or a set
+// amount of time expires
+func (this *GpioTime) WaitFor(timeout time.Duration) {
+	pending := this.Pending
+	for pending {
+		select {
+		case <-this.Channel:
+			pending = false
+		case <-time.After(timeout):
+			return
 		}
 	}
 }
@@ -139,9 +141,8 @@ func ArmLanes() (lanes [4]*GpioTime, err error) {
 
 // WaitForStart waits until the start GPIO triggers
 func WaitForStart(start *GpioTime) {
-	start.Wait(0) // wait forever
+	start.WaitForever()
 	start.Close()
-	log.Printf("wait for statr %v\n", start.Time)
 }
 
 // deltaTimes calculates the difference betwene two timestamps
@@ -155,39 +156,10 @@ func deltaTimes(start *GpioTime, end *GpioTime) float64 {
 // WaitForLanes waits until all 4 lanes have triggered and returns
 // the time difference for each lane
 func WaitForLanes(lanes [4]*GpioTime) {
-	done := [4]bool{
-		!lanes[0].Pending,
-		!lanes[1].Pending,
-		!lanes[2].Pending,
-		!lanes[3].Pending,
-	}
-	for !done[0] || !done[1] || !done[2] || !done[3] {
-		select {
-		case <-lanes[0].Channel:
-			lanes[0].Close()
-			done[0] = true
-			log.Println("Lane 0 done.")
-		case <-lanes[1].Channel:
-			lanes[1].Close()
-			done[1] = true
-			log.Println("Lane 1 done.")
-		case <-lanes[2].Channel:
-			lanes[2].Close()
-			done[2] = true
-			log.Println("Lane 2 done.")
-		case <-lanes[3].Channel:
-			lanes[3].Close()
-			done[3] = true
-			log.Println("Lane 3 done.")
-		case <-time.After(20 * time.Second):
-			log.Println("Lanes have timed out.")
-			for i, _ := range done {
-				done[i] = true
-			}
-		}
-	}
-	for _, g := range lanes {
-		g.Close()
+	doneAt := time.Now() + 20*time.Second
+	for i, _ := range lanes {
+		lanes[i].WaitFor(doneAt - time.Now())
+		lanes[i].Close()
 	}
 	return
 }
