@@ -89,10 +89,11 @@ func createLanes() (lanes [4]GpioTime) {
 // ArmStart sets up the interrupt handler for the start GPIO line
 func ArmStart() (start *GpioTime, err error) {
 	start = new(GpioTime)
-	start.New(start.Chip, start.Lane)
+	start.New(startChip, startGpio)
+	err = start.Arm()
 	//{startChip, startGpio, 0, true, nil, make(chan int)}
-	start.Line, err = gpiod.RequestLine(start.Chip, start.Lane, gpiod.AsInput,
-		gpiod.WithEventHandler(start.gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
+	// start.Line, err = gpiod.RequestLine(start.Chip, start.Lane, gpiod.AsInput,
+		// gpiod.WithEventHandler(start.gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
 	return
 }
 
