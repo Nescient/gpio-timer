@@ -42,7 +42,7 @@ type GpioTime struct {
 }
 
 // New initializes the structure to default values
-func (this GpioTime) New(chip string, offset int) {
+func (this *GpioTime) New(chip string, offset int) {
 	this.Close()
 	this.Chip = chip
 	this.Lane = offset
@@ -53,7 +53,7 @@ func (this GpioTime) New(chip string, offset int) {
 }
 
 // Arm will register the GPIO for a falling edge event
-func (this GpioTime) Arm() (err error) {
+func (this *GpioTime) Arm() (err error) {
 	this.Pending = true
 	this.Line, err = gpiod.RequestLine(this.Chip, this.Lane, gpiod.AsInput,
 		gpiod.WithEventHandler(this.gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
@@ -61,7 +61,7 @@ func (this GpioTime) Arm() (err error) {
 }
 
 // gpioHandler handles a GPIO event for a given GpioTime struct
-func (this GpioTime) gpioHandler(evt gpiod.LineEvent) {
+func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 	if evt.Offset == this.Lane {
 		this.Pending = false
 		this.Time = evt.Timestamp
@@ -83,11 +83,14 @@ func (this GpioTime) Close() {
 
 // createLanes initializes an array of GpioTime structures
 // to represent the set of Gpio lanes
-func createLanes() (lanes [4]GpioTime) {
-	lanes[0] = GpioTime{laneChip, lane1Gpio, 0, true, nil, make(chan int)}
-	lanes[1] = GpioTime{laneChip, lane2Gpio, 0, true, nil, make(chan int)}
-	lanes[2] = GpioTime{laneChip, lane3Gpio, 0, true, nil, make(chan int)}
-	lanes[3] = GpioTime{laneChip, lane4Gpio, 0, true, nil, make(chan int)}
+func createLanes() (lanes [4]*GpioTime) {
+	for i, _ := range lanes {
+		lanes[i] = new(GpioTime)
+	}
+	lanes[0].New(laneChip, lane1Gpio)
+	lanes[1].New(laneChip, lane2Gpio)
+	lanes[2].New(laneChip, lane3Gpio)
+	lanes[3].New(laneChip, lane4Gpio)
 	return
 }
 
@@ -96,34 +99,17 @@ func ArmStart() (start *GpioTime, err error) {
 	start = new(GpioTime)
 	start.New(startChip, startGpio)
 	err = start.Arm()
-	//{startChip, startGpio, 0, true, nil, make(chan int)}
-	// start.Line, err = gpiod.RequestLine(start.Chip, start.Lane, gpiod.AsInput,
-		// gpiod.WithEventHandler(start.gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
 	return
 }
 
 // ArmLanes sets up the interrupt handler for the all the lane GPIO lines
-func ArmLanes() (lanes [4]GpioTime, err error) {
+func ArmLanes() (lanes [4]*GpioTime, err error) {
 	lanes = createLanes()
-	lanes[0].Line, err = gpiod.RequestLine(lanes[0].Chip, lanes[0].Lane, gpiod.AsInput,
-		gpiod.WithEventHandler(lanes[0].gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
-	if err != nil {
-		log.Fatal(err)
-	}
-	lanes[1].Line, err = gpiod.RequestLine(lanes[1].Chip, lanes[1].Lane, gpiod.AsInput,
-		gpiod.WithEventHandler(lanes[1].gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
-	if err != nil {
-		log.Fatal(err)
-	}
-	lanes[2].Line, err = gpiod.RequestLine(lanes[2].Chip, lanes[2].Lane, gpiod.AsInput,
-		gpiod.WithEventHandler(lanes[2].gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
-	if err != nil {
-		log.Fatal(err)
-	}
-	lanes[3].Line, err = gpiod.RequestLine(lanes[3].Chip, lanes[3].Lane, gpiod.AsInput,
-		gpiod.WithEventHandler(lanes[3].gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
-	if err != nil {
-		log.Fatal(err)
+	for i, _ := range lanes {
+		err = lanes[i].Arm()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 	return
 }
@@ -142,7 +128,7 @@ func WaitForStart(start *GpioTime) {
 }
 
 // deltaTimes calculates the difference betwene two timestamps
-func deltaTimes(start *GpioTime, end GpioTime) float64 {
+func deltaTimes(start *GpioTime, end *GpioTime) float64 {
 	if end.Pending || start.Pending {
 		return 0.0
 	}
@@ -151,7 +137,7 @@ func deltaTimes(start *GpioTime, end GpioTime) float64 {
 
 // WaitForLanes waits until all 4 lanes have triggered and returns
 // the time difference for each lane
-func WaitForLanes(lanes [4]GpioTime) {
+func WaitForLanes(lanes [4]*GpioTime) {
 	done := [4]bool{
 		!lanes[0].Pending,
 		!lanes[1].Pending,
@@ -191,7 +177,7 @@ func WaitForLanes(lanes [4]GpioTime) {
 
 // GetTimes returns the difference between a set of lanes and start time
 // GpioTime structures
-func GetTimes(start *GpioTime, lanes [4]GpioTime) (times [4]float64) {
+func GetTimes(start *GpioTime, lanes [4]*GpioTime) (times [4]float64) {
 	for i, _ := range times {
 		times[i] = deltaTimes(start, lanes[i])
 	}

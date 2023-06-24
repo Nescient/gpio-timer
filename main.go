@@ -63,7 +63,6 @@ func main() {
 			log.Println("Waiting for start gate...")
 			gpio.WaitForStart(start)
 			derbynet.Started()
-			log.Printf("Started at %v\n", start.Time)
 			lanes, err := gpio.ArmLanes()
 			if err != nil {
 				log.Fatal(err)
