@@ -5,7 +5,6 @@ package gpio
 import (
 	"github.com/warthog618/gpiod"
 	"log"
-	"sync"
 	"time"
 )
 
@@ -39,7 +38,6 @@ type GpioTime struct {
 	Time    time.Duration
 	Pending bool
 	Line    *gpiod.Line
-	Lines   *gpiod.Line
 	Channel chan int
 }
 
@@ -59,64 +57,55 @@ func (this GpioTime) Close() {
 	if this.Line != nil {
 		this.Line.Close()
 	}
-	if this.Lines != nil {
-		this.Lines.Close()
-	}
 }
 
-var startTime time.Duration
-var laneTimes = [4]time.Duration{}
-
-var waitLanes sync.WaitGroup
-
-// clearLanes resets all the lane times to a default value
-func clearLanes() {
-	laneTimes = [4]time.Duration{0, 0, 0, 0}
+// New initializes the structure to default values
+func (this GpioTime) New(chip string, offset int) {
+	this = GpioTime{chip, offset, 0, true, nil, make(chan int)}
 }
 
-// setLaneTime sets the time that a given lane completes
-func setLaneTime(evt gpiod.LineEvent) {
-	log.Printf("got lane event %d\n", evt.Offset)
-	switch gpioNum := evt.Offset; gpioNum {
-	case lane1Gpio:
-		if laneTimes[0] == 0 {
-			laneTimes[0] = evt.Timestamp
-			waitLanes.Done()
-		}
-	case lane2Gpio:
-		if laneTimes[1] == 0 {
-			laneTimes[1] = evt.Timestamp
-			waitLanes.Done()
-		}
-	case lane3Gpio:
-		if laneTimes[2] == 0 {
-			laneTimes[2] = evt.Timestamp
-			waitLanes.Done()
-		}
-	case lane4Gpio:
-		if laneTimes[3] == 0 {
-			laneTimes[3] = evt.Timestamp
-			waitLanes.Done()
-		}
-	default:
-		log.Printf("unknown lane event %d\n", gpioNum)
-	}
+// createLanes initializes an array of GpioTime structures
+// to represent the set of Gpio lanes
+func createLanes() (lanes [4]GpioTime) {
+	lanes[0] = GpioTime{laneChip, lane1Gpio, 0, true, nil, make(chan int)}
+	lanes[1] = GpioTime{laneChip, lane2Gpio, 0, true, nil, make(chan int)}
+	lanes[2] = GpioTime{laneChip, lane3Gpio, 0, true, nil, make(chan int)}
+	lanes[3] = GpioTime{laneChip, lane4Gpio, 0, true, nil, make(chan int)}
+	return
 }
 
 // ArmStart sets up the interrupt handler for the start GPIO line
 func ArmStart() (start GpioTime, err error) {
-	start = GpioTime{startChip, startGpio, 0, true, nil, nil, make(chan int)}
+	start = GpioTime{startChip, startGpio, 0, true, nil, make(chan int)}
 	start.Line, err = gpiod.RequestLine(start.Chip, start.Lane, gpiod.AsInput,
 		gpiod.WithEventHandler(start.gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
 	return
 }
 
 // ArmLanes sets up the interrupt handler for the all the lane GPIO lines
-func ArmLanes() (*gpiod.Lines, error) {
-	clearLanes()
-	waitLanes.Add(4)
-	return gpiod.RequestLines(laneChip, []int{lane1Gpio, lane2Gpio, lane3Gpio, lane4Gpio},
-		gpiod.AsInput, gpiod.WithEventHandler(setLaneTime), gpiod.LineEdgeFalling, gpiod.WithPullUp)
+func ArmLanes() (lanes [4]GpioTime, err error) {
+	lanes = createLanes()
+	lanes[0].Line, err = gpiod.RequestLine(lanes[0].Chip, lanes[0].Lane, gpiod.AsInput,
+		gpiod.WithEventHandler(lanes[0].gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
+	if err != nil {
+		log.Fatal(err)
+	}
+	lanes[1].Line, err = gpiod.RequestLine(lanes[1].Chip, lanes[1].Lane, gpiod.AsInput,
+		gpiod.WithEventHandler(lanes[1].gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
+	if err != nil {
+		log.Fatal(err)
+	}
+	lanes[2].Line, err = gpiod.RequestLine(lanes[2].Chip, lanes[2].Lane, gpiod.AsInput,
+		gpiod.WithEventHandler(lanes[2].gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
+	if err != nil {
+		log.Fatal(err)
+	}
+	lanes[3].Line, err = gpiod.RequestLine(lanes[3].Chip, lanes[3].Lane, gpiod.AsInput,
+		gpiod.WithEventHandler(lanes[3].gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
 }
 
 // WaitForStart waits until the start GPIO triggers
@@ -132,19 +121,48 @@ func WaitForStart(start *GpioTime) {
 }
 
 // deltaTimes calculates the difference betwene two timestamps
-func deltaTimes(start time.Duration, end time.Duration) float64 {
-	if end < start {
+func deltaTimes(start GpioTime, end GpioTime) float64 {
+	if end.Pending || start.Pending {
 		return 0.0
 	}
-	return end.Seconds() - start.Seconds()
+	return end.Time.Seconds() - start.Time.Seconds()
 }
 
 // WaitForLanes waits until all 4 lanes have triggered and returns
 // the time difference for each lane
-func WaitForLanes() (times [4]float64) {
-	waitLanes.Wait()
-	for i, _ := range laneTimes {
-		times[i] = deltaTimes(startTime, laneTimes[i])
+func WaitForLanes(lanes [4]GpioTime) {
+	done := [4]bool{lanes[0].Pending, lanes[1].Pending, lanes[2].Pending, lanes[3].Pending}
+	for !done[0] || !done[1] || !done[2] || !done[3] {
+		select {
+		case <-lanes[0].Channel:
+			lanes[0].Close()
+			done[0] = true
+		case <-lanes[1].Channel:
+			lanes[1].Close()
+			done[1] = true
+		case <-lanes[2].Channel:
+			lanes[2].Close()
+			done[2] = true
+		case <-lanes[3].Channel:
+			lanes[3].Close()
+			done[3] = true
+		case <-time.After(20 * time.Second):
+			for i, _ := range done {
+				done[i] = true
+			}
+		}
+	}
+	for _, g := range lanes {
+		g.Close()
+	}
+	return
+}
+
+// GetTimes returns the difference between a set of lanes and start time
+// GpioTime structures
+func GetTimes(start GpioTime, lanes [4]GpioTime) (times [4]float64) {
+	for i, _ := range times {
+		times[i] = deltaTimes(start, lanes[i])
 	}
 	return
 }
