@@ -44,7 +44,12 @@ type GpioTime struct {
 // New initializes the structure to default values
 func (this GpioTime) New(chip string, offset int) {
 	this.Close()
-	this = GpioTime{chip, offset, 0, true, nil, make(chan int)}
+	this.Chip = chip
+	this.Lane = offset
+	this.Time = 0
+	this.Pending = true
+	this.Line = nil
+	this.Channel = make(chan int)
 }
 
 // Arm will register the GPIO for a falling edge event
