@@ -72,9 +72,32 @@ func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 	}
 }
 
+// Wait will wait until the handler is called or a set
+// amount of time expires
+func (this *GpioTime) Wait(seconds int) {
+	pending := start.Pending
+	if seconds > 0 {
+		for pending {
+			select {
+			case <-start.Channel:
+				pending = false
+			case <-time.After(seconds * time.Second):
+				return
+			}
+		}
+	} else {
+		for pending {
+			select {
+			case <-start.Channel:
+				pending = false
+			}
+		}
+	}
+}
+
 // Close will close any open GPIO lanes for the GpioTime struct
 // as well as the channel
-func (this GpioTime) Close() {
+func (this *GpioTime) Close() {
 	if this.Line != nil {
 		this.Line.Close()
 	}
@@ -116,13 +139,7 @@ func ArmLanes() (lanes [4]*GpioTime, err error) {
 
 // WaitForStart waits until the start GPIO triggers
 func WaitForStart(start *GpioTime) {
-	pending := start.Pending
-	for pending {
-		select {
-		case <-start.Channel:
-			pending = false
-		}
-	}
+	start.Wait(0) // wait forever
 	start.Close()
 	log.Printf("wait for statr %v\n", start.Time)
 }
