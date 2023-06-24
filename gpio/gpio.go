@@ -148,7 +148,7 @@ func WaitForLanes(lanes [4]GpioTime) {
 		!lanes[2].Pending,
 		!lanes[3].Pending,
 	}
-	for !done[0] && !done[1] && !done[2] && !done[3] {
+	for !done[0] || !done[1] || !done[2] || !done[3] {
 		select {
 		case <-lanes[0].Channel:
 			lanes[0].Close()
