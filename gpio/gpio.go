@@ -72,7 +72,7 @@ func (this GpioTime) Close() {
 	if this.Line != nil {
 		this.Line.Close()
 	}
-	close(this.Channel)
+	// close(this.Channel) // not safe to do multiple times
 }
 
 // createLanes initializes an array of GpioTime structures
