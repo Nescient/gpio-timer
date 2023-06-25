@@ -85,6 +85,7 @@ func (this *GpioTime) WaitForever() {
 // WaitFor will wait until the handler is called or a set
 // amount of time expires
 func (this *GpioTime) WaitFor(timeout time.Duration) {
+	log.Printf("GPIOTIME Waiting for %v\n", timeout)
 	pending := this.Pending
 	for pending {
 		select {
@@ -92,7 +93,7 @@ func (this *GpioTime) WaitFor(timeout time.Duration) {
 			pending = false
 		case t := <-time.After(timeout):
 			log.Printf("Lane Timeout triggered at %v\n", t)
-			return
+			pending = false
 		}
 	}
 }
