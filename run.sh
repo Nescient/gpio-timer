@@ -11,10 +11,4 @@ docker run -itd --name derby-timer --restart unless-stopped --net=host \
    --device=/dev/gpiochip1 --device=/dev/gpiochip2 --device=/dev/gpiochip3 --device=/dev/gpiochip4 \
    golang:1.20 go run github.com/Nescient/gpio-timer
 
-echo "To see output in the terminal, run"
-echo "docker logs derby-timer"
-
-while true; do
-   docker logs derby-timer
-   sleep 1
-done
+docker logs --follow derby-timer
