@@ -15,6 +15,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -23,12 +24,6 @@ var fullUrl = "http://192.168.0.236/action.php"
 
 // logUrl is the complete URL to the derbynet logging page
 var logUrl = "http://192.168.0.236/post-timer-log.php"
-
-// client is our saved "connected" client (that has the cookie)
-var client http.Client
-
-// sendLogs indicates that the derbynet server has asked for logs
-var sendLogs = false
 
 // HeatReady is the XML structure that indicates a race is
 // ready to start.
@@ -65,32 +60,48 @@ type ActionResponse struct {
 	Log     RemoteLog `xml:"remote-log"`
 }
 
-// the last received HeatReady response
-var heat HeatReady
+// DerbyNet holds most of the useful objects to communicate with
+// the derbynet server
+type DerbyNet struct {
+	// client is our saved "connected" client (that has the cookie)
+	client http.Client
 
-// an efficient way to wait for a heat
-var waitHeat chan int
+	// sendLogs indicates that the derbynet server has asked for logs
+	sendLogs bool
+
+	// i thought golang was thread safe.  it is not
+	lock sync.Mutex
+
+	// the last received HeatReady response
+	heat HeatReady
+
+	// an efficient way to wait for a heat
+	waitHeat chan int
+}
 
 // init will create a new client with a cookie jar,
 // which will consequently be used in all POST operations
-func init() {
+func (this *DerbyNet) Initialize() {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	client = http.Client{
+	this.client = http.Client{
 		Jar: jar,
 	}
-	waitHeat = make(chan int, 1)
+	this.sendLogs = false
+	this.waitHeat = make(chan int, 1)
 }
 
 // GetCookie will post to the derby net URL, and log in as the
 // Timer user, returning the cookie from the response
-func GetCookie() {
-	resp, err := client.PostForm(fullUrl, url.Values{
+func (this *DerbyNet) GetCookie() {
+	this.lock.Lock()
+	resp, err := this.client.PostForm(fullUrl, url.Values{
 		"action":   {"role.login"},
 		"name":     {"Timer"},
 		"password": {""}})
+	this.lock.Unlock()
 
 	if err != nil {
 		log.Fatal(err)
@@ -111,7 +122,7 @@ func GetCookie() {
 }
 
 // timerMessage is a helper function to send timer messages
-func timerMessage(msg string, params url.Values) string {
+func (this *DerbyNet) timerMessage(msg string, params url.Values) string {
 	if params == nil {
 		params = make(url.Values)
 	}
@@ -119,7 +130,9 @@ func timerMessage(msg string, params url.Values) string {
 	params.Set("action", "timer-message")
 	params.Set("message", msg)
 
-	resp, err := client.PostForm(fullUrl, params)
+	this.lock.Lock()
+	resp, err := this.client.PostForm(fullUrl, params)
+	this.lock.Unlock()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -137,14 +150,14 @@ func timerMessage(msg string, params url.Values) string {
 
 // processResponse parses the XML response and attempts to
 // respond with requested information or set local variables
-func processResponse(msg string) {
+func (this *DerbyNet) processResponse(msg string) {
 	var respMsg ActionResponse
 	if err := xml.Unmarshal([]byte(msg), &respMsg); err != nil {
 		log.Fatal(err)
 	}
 
-	SendLogs(respMsg.Log.Send)
-	if sendLogs {
+	this.SendLogs(respMsg.Log.Send)
+	if this.sendLogs {
 		log.Println("VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV")
 		log.Printf("%s", msg)
 		log.Println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
@@ -156,13 +169,15 @@ func processResponse(msg string) {
 	}
 	root := xmlquery.FindOne(doc, "//action-response")
 	if q := root.SelectElement("//heat-ready"); q != nil {
-		heat = respMsg.Heat
-		log.Printf("Heat %d is ready.\n", heat.Heat)
-		waitHeat <- heat.Heat
+		this.lock.Lock()
+		this.heat = respMsg.Heat
+		log.Printf("Heat %d is ready.\n", this.heat.Heat)
+		this.waitHeat <- this.heat.Heat
+		this.lock.Unlock()
 	}
 
 	if q := root.SelectElement("//query"); q != nil {
-		Flags()
+		this.Flags()
 	}
 
 	for i, n := range xmlquery.Find(doc, "//action-response/failure@code") {
@@ -174,8 +189,10 @@ func processResponse(msg string) {
 		log.Println("last command successful")
 	}
 	if q := root.SelectElement("//abort"); q != nil {
-		heat.Heat = 0
-		waitHeat <- heat.Heat
+		this.lock.Lock()
+		this.heat.Heat = 0
+		this.waitHeat <- this.heat.Heat
+		this.lock.Unlock()
 	}
 	if q := root.SelectElement("//remote-start"); q != nil {
 		log.Println("remote-start message ignored")
@@ -192,53 +209,53 @@ func processResponse(msg string) {
 }
 
 // Heartbeat sends the heartbeat message to the server
-func Heartbeat() {
-	msg := timerMessage("HEARTBEAT", nil)
-	processResponse(msg)
+func (this *DerbyNet) Heartbeat() {
+	msg := this.timerMessage("HEARTBEAT", nil)
+	this.processResponse(msg)
 }
 
 // Hello sends the hello message to the server
-func Hello() {
-	msg := timerMessage("HELLO", nil)
-	processResponse(msg)
+func (this *DerbyNet) Hello() {
+	msg := this.timerMessage("HELLO", nil)
+	this.processResponse(msg)
 }
 
 // Identified sends the identified message to the server with the
 // provided identification string (probably the git rev)
-func Identified(ident string) {
+func (this *DerbyNet) Identified(ident string) {
 	params := make(url.Values)
 	params.Set("lane_count", "4")
 	params.Set("timer", "github.com/Nescient/gpio-timer")
 	params.Set("human", "GPIO Timer")
 	params.Set("ident", ident)
-	processResponse(timerMessage("IDENTIFIED", params))
+	this.processResponse(this.timerMessage("IDENTIFIED", params))
 }
 
 // Flag sends the complete set of command-line flags, detected serial ports,
 // and available timer classes to the server, encoded as additional parameters.
-func Flags() {
+func (this *DerbyNet) Flags() {
 	params := make(url.Values)
 	// params.Set("flag-{flagname}", "{type}:{value}")
 	// params.Set("desc-{flagname}", "{description}")
 	params.Set("ports", "")
 	params.Set("device-github.com Nescient gpio-timer", "GPIO Timer")
-	processResponse(timerMessage("FLAGS", params))
+	this.processResponse(this.timerMessage("FLAGS", params))
 }
 
 // WaitForHeat waits until the next heat has been started by the server
 // it uses the heat.Heat (unique ID) to check if a heat is valid
-func WaitForHeat() bool {
+func (this *DerbyNet) WaitForHeat() bool {
 	select {
-	case <-waitHeat:
-		return heat.Heat > 0
+	case <-this.waitHeat:
+		return this.heat.Heat > 0
 	case <-time.After(10 * time.Second):
 		return false
 	}
 }
 
 // Started sends a message to the server indicating that the start gate has opened
-func Started() {
-	processResponse(timerMessage("STARTED", nil))
+func (this *DerbyNet) Started() {
+	this.processResponse(this.timerMessage("STARTED", nil))
 }
 
 // Finished sends a message to the server to report results.  It is accompanied by
@@ -251,10 +268,10 @@ func Started() {
 // heat, etc.
 // The server may reject the reported results if e.g. they don't correspond to the currently-running heat
 // (i.e., if the heat and roundid values aren't what were expected).
-func Finished(lane1 float64, lane2 float64, lane3 float64, lane4 float64) {
+func (this *DerbyNet) Finished(lane1 float64, lane2 float64, lane3 float64, lane4 float64) {
 	params := make(url.Values)
-	params.Set("roundid", strconv.Itoa(heat.RoundID))
-	params.Set("heat", strconv.Itoa(heat.Heat))
+	params.Set("roundid", strconv.Itoa(this.heat.RoundID))
+	params.Set("heat", strconv.Itoa(this.heat.Heat))
 	if lane1 != 0.0 {
 		params.Set("lane1", fmt.Sprintf("%.5f", lane1))
 	}
@@ -271,12 +288,13 @@ func Finished(lane1 float64, lane2 float64, lane3 float64, lane4 float64) {
 		params.Set("lane4", fmt.Sprintf("%.5f", lane4))
 	}
 	// params.Set("place4", "")
-	processResponse(timerMessage("FINISHED", params))
+	this.processResponse(this.timerMessage("FINISHED", params))
 }
 
 // logPost is a pointless struct to allow me to create
 // a custom write function for io.Writer
 type logPost struct {
+	client* DerbyNet
 }
 
 // Write implements a post call for the derbynet logging
@@ -284,7 +302,9 @@ type logPost struct {
 func (l logPost) Write(p []byte) (n int, err error) {
 	size := len(p)
 	reader := bytes.NewReader(p)
-	resp, err := client.Post(logUrl, "text/plain", reader)
+	l.client.lock.Lock()
+	resp, err := l.client.client.Post(logUrl, "text/plain", reader)
+	l.client.lock.Unlock()
 	if err != nil {
 		fmt.Println(err)
 		return size - reader.Len(), err
@@ -317,9 +337,9 @@ func (l logPost) Write(p []byte) (n int, err error) {
 // If remote logging is active, derby-timer.jar makes POST requests to the post-timer-log.php URL. The
 // POST request body has content-type text/plain type. The server appends the request body text to the
 // logged text captured on the server.
-func SendLogs(en bool) {
-	if sendLogs != en {
-		sendLogs = en
+func (this *DerbyNet) SendLogs(en bool) {
+	if this.sendLogs != en {
+		this.sendLogs = en
 		if en {
 			log.Printf("sending logs...")
 			log.SetOutput(&logPost{})
@@ -331,11 +351,13 @@ func SendLogs(en bool) {
 }
 
 // Terminate indicates that this timer is terminating
-func Terminate() {
-	heat.Heat = 0
-	waitHeat <- heat.Heat
+func (this *DerbyNet) Terminate() {
+	this.lock.Lock()
+	this.heat.Heat = 0
+	this.waitHeat <- this.heat.Heat
+	this.lock.Unlock()
 	params := make(url.Values)
 	params.Set("detectable", "0")
 	params.Set("error", "GPIO Timer is terminating.  Sorry!")
-	timerMessage("MALFUNCTION", params)
+	this.timerMessage("MALFUNCTION", params)
 }

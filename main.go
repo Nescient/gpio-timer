@@ -33,36 +33,38 @@ func main() {
 	log.Println(whoAmI)
 	log.Println(gitrev)
 
+	var client derbynet.DerbyNet
+	client.Initialize()
 	log.Println("Getting cookie...")
-	derbynet.GetCookie()
+	client.GetCookie()
 	log.Println("Saying hello...")
-	derbynet.Hello()
+	client.Hello()
 	log.Println("Indentifying...")
-	derbynet.Identified(gitrev)
+	client.Identified(gitrev)
 
 	// timer heartbeats
 	log.Println("Establishing heartbeats...")
 	isQuitting := false
 	go func() {
 		for !isQuitting {
-			derbynet.Heartbeat()
+			client.Heartbeat()
 			time.Sleep(time.Second * 5)
 		}
-		derbynet.Terminate()
+		client.Terminate()
 	}()
 
 	// main race loop
 	log.Println("Starting main race loop...")
 	for isQuitting == false {
 		log.Println("Waiting for heat...")
-		if derbynet.WaitForHeat() {
+		if client.WaitForHeat() {
 			start, err := gpio.ArmStart()
 			if err != nil {
 				log.Fatal(err)
 			}
 			log.Println("Waiting for start gate...")
 			gpio.WaitForStart(start)
-			derbynet.Started()
+			client.Started()
 			lanes, err := gpio.ArmLanes()
 			if err != nil {
 				log.Fatal(err)
@@ -70,13 +72,13 @@ func main() {
 			log.Println("Waiting for lanes...")
 			gpio.WaitForLanes(lanes)
 			laneTimes := gpio.GetTimes(start, lanes)
-			derbynet.Finished(laneTimes[0], laneTimes[1], laneTimes[2], laneTimes[3])
+			client.Finished(laneTimes[0], laneTimes[1], laneTimes[2], laneTimes[3])
 			log.Printf("Times %f %f %f %f\n", laneTimes[0], laneTimes[1], laneTimes[2], laneTimes[3])
 		}
 	}
 
 	isQuitting = true
 	log.Println("Terminating...")
-	derbynet.Terminate()
+	client.Terminate()
 	time.Sleep(time.Second * 2)
 }
