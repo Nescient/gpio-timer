@@ -294,7 +294,7 @@ func (this *DerbyNet) Finished(lane1 float64, lane2 float64, lane3 float64, lane
 // logPost is a pointless struct to allow me to create
 // a custom write function for io.Writer
 type logPost struct {
-	client* DerbyNet
+	client *DerbyNet
 }
 
 // Write implements a post call for the derbynet logging
