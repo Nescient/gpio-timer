@@ -66,6 +66,7 @@ func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 	if evt.Offset == this.Lane {
 		// if pending, swap and set time
 		if this.Pending.CompareAndSwap(true, false) {
+			log.Printf("Received GPIO event %d at %v\n", evt.Offset, evt.Timestamp)
 			this.Time = evt.Timestamp
 			// need to non-blocking send this
 			select {
