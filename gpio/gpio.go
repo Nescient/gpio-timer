@@ -74,6 +74,7 @@ func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 		this.Time = evt.Timestamp
 		this.lock.Unlock()
 		this.Channel <- 1
+		close(this.Channel)
 	} else {
 		log.Printf("Received unknown GPIO event %d\n", evt.Offset)
 	}
@@ -99,6 +100,7 @@ func (this *GpioTime) WaitFor(timeout time.Duration) {
 		for pending {
 			select {
 			case <-this.Channel:
+				log.Println("read from channel")
 				pending = false
 			case t := <-time.After(timeout):
 				log.Printf("Lane Timeout triggered at %v\n", t)
@@ -176,7 +178,29 @@ func WaitForLanes(lanes [4]*GpioTime) {
 		lanes[i].WaitFor(doneAt.Sub(time.Now()))
 		lanes[i].Close()
 	}
-	return
+	// count = 0
+	// for count < 4 {
+	// 	select {
+	// 	case <-lanes[0].Channel:
+	// 		lanes[0].Close()
+	// 		count += 1
+	// 	case <-lanes[1].Channel:
+	// 		lanes[1].Close()
+	// 		count += 1
+	// 	case <-lanes[2].Channel:
+	// 		lanes[2].Close()
+	// 		count += 1
+	// 	case <-lanes[3].Channel:
+	// 		lanes[3].Close()
+	// 		count += 1
+	// 	case <-time.After(20 * time.Second):
+	// 		lanes[0].Close()
+	// 		lanes[1].Close()
+	// 		lanes[2].Close()
+	// 		lanes[3].Close()
+	// 		count = 4
+	// 	}
+	// }
 }
 
 // GetTimes returns the difference between a set of lanes and start time
