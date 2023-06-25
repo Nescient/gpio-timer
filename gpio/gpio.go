@@ -156,9 +156,9 @@ func deltaTimes(start *GpioTime, end *GpioTime) float64 {
 // WaitForLanes waits until all 4 lanes have triggered and returns
 // the time difference for each lane
 func WaitForLanes(lanes [4]*GpioTime) {
-	doneAt := time.Now() + 20*time.Second
+	doneAt := time.Now().Add(20 * time.Second)
 	for i, _ := range lanes {
-		lanes[i].WaitFor(doneAt - time.Now())
+		lanes[i].WaitFor(doneAt.Sub(time.Now()))
 		lanes[i].Close()
 	}
 	return
