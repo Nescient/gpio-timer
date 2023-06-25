@@ -64,7 +64,6 @@ func (this *GpioTime) Arm() (err error) {
 // gpioHandler handles a GPIO event for a given GpioTime struct
 func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 	if evt.Offset == this.Lane {
-		log.Printf("Received %d at %v\n", evt.Offset, evt.Timestamp)
 		this.Time = evt.Timestamp
 		this.Pending.Store(false)
 		// need to non-blocking send this
@@ -77,7 +76,6 @@ func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 	} else {
 		log.Printf("Received unknown GPIO event %d\n", evt.Offset)
 	}
-	log.Println("exit handler")
 }
 
 // WaitForever will wait until the handler is called
@@ -85,6 +83,7 @@ func (this *GpioTime) WaitForever() {
 	if this.Pending.Load() {
 		select {
 		case <-this.Channel:
+			log.Printf("GPIO %d complete.", this.Lane)
 		}
 	}
 }
@@ -95,23 +94,20 @@ func (this *GpioTime) WaitFor(timeout time.Duration) {
 	if timeout > 0 && this.Pending.Load() {
 		select {
 		case <-this.Channel:
-			log.Println("read from channel")
+			log.Printf("GPIO %d complete.", this.Lane)
 		case t := <-time.After(timeout):
-			log.Printf("Lane Timeout triggered at %v\n", t)
+			log.Printf("GPIO %d timeout at %v.\n", this.Lane, t)
 		}
 	}
-	log.Println("exiting wait")
 }
 
 // Close will close any open GPIO lanes for the GpioTime struct
 // as well as the channel
 func (this *GpioTime) Close() {
-	// this.lock.Lock()
 	if this.Line != nil {
 		this.Line.Close()
 	}
 	// close(this.Channel) // not safe to do multiple times
-	// this.lock.Unlock()
 }
 
 // createLanes initializes an array of GpioTime structures
@@ -165,35 +161,10 @@ func deltaTimes(start *GpioTime, end *GpioTime) float64 {
 // the time difference for each lane
 func WaitForLanes(lanes [4]*GpioTime) {
 	doneAt := time.Now().Add(20 * time.Second)
-	log.Printf("will be done at %v\n", doneAt)
 	for i, _ := range lanes {
-		log.Printf("waiting for %v\n", doneAt.Sub(time.Now()))
 		lanes[i].WaitFor(doneAt.Sub(time.Now()))
 		lanes[i].Close()
 	}
-	// count := 0
-	// for count < 4 {
-	// 	select {
-	// 	case <-lanes[0].Channel:
-	// 		lanes[0].Close()
-	// 		count += 1
-	// 	case <-lanes[1].Channel:
-	// 		lanes[1].Close()
-	// 		count += 1
-	// 	case <-lanes[2].Channel:
-	// 		lanes[2].Close()
-	// 		count += 1
-	// 	case <-lanes[3].Channel:
-	// 		lanes[3].Close()
-	// 		count += 1
-	// 	case <-time.After(20 * time.Second):
-	// 		lanes[0].Close()
-	// 		lanes[1].Close()
-	// 		lanes[2].Close()
-	// 		lanes[3].Close()
-	// 		count = 4
-	// 	}
-	// }
 }
 
 // GetTimes returns the difference between a set of lanes and start time
