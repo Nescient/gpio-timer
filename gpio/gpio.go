@@ -70,11 +70,14 @@ func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 		// need to non-blocking send this
 		select {
 		case this.Channel <- 1:
+			log.Println("waiters on channel")
 		default:
+			log.Println("no waiters on channel")
 		}
 	} else {
 		log.Printf("Received unknown GPIO event %d\n", evt.Offset)
 	}
+	log.Println("exit handler")
 }
 
 // WaitForever will wait until the handler is called
