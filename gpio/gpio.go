@@ -5,7 +5,7 @@ package gpio
 import (
 	"github.com/warthog618/gpiod"
 	"log"
-	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -37,42 +37,36 @@ type GpioTime struct {
 	Chip    string
 	Lane    int
 	Time    time.Duration
-	Pending bool
+	Pending atomic.Bool
 	Line    *gpiod.Line
 	Channel chan int
-	lock    sync.Mutex
 }
 
 // New initializes the structure to default values
 func (this *GpioTime) New(chip string, offset int) {
 	this.Close()
-	this.lock.Lock()
 	this.Chip = chip
 	this.Lane = offset
 	this.Time = 0
-	this.Pending = true
+	this.Pending.Store(true)
 	this.Line = nil
 	this.Channel = make(chan int)
-	this.lock.Unlock()
 }
 
 // Arm will register the GPIO for a falling edge event
 func (this *GpioTime) Arm() (err error) {
-	this.lock.Lock()
-	this.Pending = true
+	this.Pending.Store(true)
 	this.Line, err = gpiod.RequestLine(this.Chip, this.Lane, gpiod.AsInput,
 		gpiod.WithEventHandler(this.gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
-	this.lock.Unlock()
 	return
 }
 
 // gpioHandler handles a GPIO event for a given GpioTime struct
 func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 	if evt.Offset == this.Lane {
-		this.lock.Lock()
-		this.Pending = false
+		log.Printf("Received %d at %v\n", evt.Offset, evt.Timestamp)
+		this.Pending.Store(false)
 		this.Time = evt.Timestamp
-		this.lock.Unlock()
 		this.Channel <- 1
 		close(this.Channel)
 	} else {
@@ -82,11 +76,9 @@ func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 
 // WaitForever will wait until the handler is called
 func (this *GpioTime) WaitForever() {
-	pending := this.Pending
-	for pending {
+	if this.Pending.Load() {
 		select {
 		case <-this.Channel:
-			pending = false
 		}
 	}
 }
@@ -94,31 +86,26 @@ func (this *GpioTime) WaitForever() {
 // WaitFor will wait until the handler is called or a set
 // amount of time expires
 func (this *GpioTime) WaitFor(timeout time.Duration) {
-	log.Printf("GPIOTIME Waiting for %d: %v\n", this.Lane, timeout)
-	if timeout > 0 {
-		pending := this.Pending
-		for pending {
-			select {
-			case <-this.Channel:
-				log.Println("read from channel")
-				pending = false
-			case t := <-time.After(timeout):
-				log.Printf("Lane Timeout triggered at %v\n", t)
-				pending = false
-			}
+	if timeout > 0 && this.Pending.Load() {
+		select {
+		case <-this.Channel:
+			log.Println("read from channel")
+		case t := <-time.After(timeout):
+			log.Printf("Lane Timeout triggered at %v\n", t)
 		}
 	}
+	log.Println("exiting wait")
 }
 
 // Close will close any open GPIO lanes for the GpioTime struct
 // as well as the channel
 func (this *GpioTime) Close() {
-	this.lock.Lock()
+	// this.lock.Lock()
 	if this.Line != nil {
 		this.Line.Close()
 	}
 	// close(this.Channel) // not safe to do multiple times
-	this.lock.Unlock()
+	// this.lock.Unlock()
 }
 
 // createLanes initializes an array of GpioTime structures
@@ -162,7 +149,7 @@ func WaitForStart(start *GpioTime) {
 
 // deltaTimes calculates the difference betwene two timestamps
 func deltaTimes(start *GpioTime, end *GpioTime) float64 {
-	if end.Pending || start.Pending {
+	if end.Pending.Load() || start.Pending.Load() {
 		return 0.0
 	}
 	return end.Time.Seconds() - start.Time.Seconds()
@@ -171,36 +158,36 @@ func deltaTimes(start *GpioTime, end *GpioTime) float64 {
 // WaitForLanes waits until all 4 lanes have triggered and returns
 // the time difference for each lane
 func WaitForLanes(lanes [4]*GpioTime) {
-	// doneAt := time.Now().Add(20 * time.Second)
-	// log.Printf("will be done at %v\n", doneAt)
-	// for i, _ := range lanes {
-	// 	log.Printf("waiting for %v\n", doneAt.Sub(time.Now()))
-	// 	lanes[i].WaitFor(doneAt.Sub(time.Now()))
-	// 	lanes[i].Close()
-	// }
-	count := 0
-	for count < 4 {
-		select {
-		case <-lanes[0].Channel:
-			lanes[0].Close()
-			count += 1
-		case <-lanes[1].Channel:
-			lanes[1].Close()
-			count += 1
-		case <-lanes[2].Channel:
-			lanes[2].Close()
-			count += 1
-		case <-lanes[3].Channel:
-			lanes[3].Close()
-			count += 1
-		case <-time.After(20 * time.Second):
-			lanes[0].Close()
-			lanes[1].Close()
-			lanes[2].Close()
-			lanes[3].Close()
-			count = 4
-		}
+	doneAt := time.Now().Add(20 * time.Second)
+	log.Printf("will be done at %v\n", doneAt)
+	for i, _ := range lanes {
+		log.Printf("waiting for %v\n", doneAt.Sub(time.Now()))
+		lanes[i].WaitFor(doneAt.Sub(time.Now()))
+		lanes[i].Close()
 	}
+	// count := 0
+	// for count < 4 {
+	// 	select {
+	// 	case <-lanes[0].Channel:
+	// 		lanes[0].Close()
+	// 		count += 1
+	// 	case <-lanes[1].Channel:
+	// 		lanes[1].Close()
+	// 		count += 1
+	// 	case <-lanes[2].Channel:
+	// 		lanes[2].Close()
+	// 		count += 1
+	// 	case <-lanes[3].Channel:
+	// 		lanes[3].Close()
+	// 		count += 1
+	// 	case <-time.After(20 * time.Second):
+	// 		lanes[0].Close()
+	// 		lanes[1].Close()
+	// 		lanes[2].Close()
+	// 		lanes[3].Close()
+	// 		count = 4
+	// 	}
+	// }
 }
 
 // GetTimes returns the difference between a set of lanes and start time
