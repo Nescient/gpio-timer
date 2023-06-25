@@ -48,7 +48,7 @@ func main() {
 	go func() {
 		for !isQuitting {
 			client.Heartbeat()
-			time.Sleep(time.Second * 5)
+			time.Sleep(time.Second * 10)
 		}
 		client.Terminate()
 	}()
