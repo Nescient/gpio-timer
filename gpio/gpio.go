@@ -65,7 +65,6 @@ func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 	if evt.Offset == this.Lane {
 		this.Pending = false
 		this.Time = evt.Timestamp
-		log.Printf("Received GPIO event at %v\n", this.Time)
 		this.Channel <- 1
 	} else {
 		log.Printf("Received unknown GPIO event %d\n", evt.Offset)
@@ -91,7 +90,8 @@ func (this *GpioTime) WaitFor(timeout time.Duration) {
 		select {
 		case <-this.Channel:
 			pending = false
-		case <-time.After(timeout):
+		case t := <-time.After(timeout):
+			log.Printf("Lane Timeout triggered at %v\n", t)
 			return
 		}
 	}
@@ -157,7 +157,9 @@ func deltaTimes(start *GpioTime, end *GpioTime) float64 {
 // the time difference for each lane
 func WaitForLanes(lanes [4]*GpioTime) {
 	doneAt := time.Now().Add(20 * time.Second)
+	log.Printf("will be done at %v\n", doneAt)
 	for i, _ := range lanes {
+		log.Printf("waiting for %v\n", doneAt.Sub(time.Now()))
 		lanes[i].WaitFor(doneAt.Sub(time.Now()))
 		lanes[i].Close()
 	}
