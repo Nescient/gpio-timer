@@ -171,36 +171,36 @@ func deltaTimes(start *GpioTime, end *GpioTime) float64 {
 // WaitForLanes waits until all 4 lanes have triggered and returns
 // the time difference for each lane
 func WaitForLanes(lanes [4]*GpioTime) {
-	doneAt := time.Now().Add(20 * time.Second)
-	log.Printf("will be done at %v\n", doneAt)
-	for i, _ := range lanes {
-		log.Printf("waiting for %v\n", doneAt.Sub(time.Now()))
-		lanes[i].WaitFor(doneAt.Sub(time.Now()))
-		lanes[i].Close()
-	}
-	// count := 0
-	// for count < 4 {
-	// 	select {
-	// 	case <-lanes[0].Channel:
-	// 		lanes[0].Close()
-	// 		count += 1
-	// 	case <-lanes[1].Channel:
-	// 		lanes[1].Close()
-	// 		count += 1
-	// 	case <-lanes[2].Channel:
-	// 		lanes[2].Close()
-	// 		count += 1
-	// 	case <-lanes[3].Channel:
-	// 		lanes[3].Close()
-	// 		count += 1
-	// 	case <-time.After(20 * time.Second):
-	// 		lanes[0].Close()
-	// 		lanes[1].Close()
-	// 		lanes[2].Close()
-	// 		lanes[3].Close()
-	// 		count = 4
-	// 	}
+	// doneAt := time.Now().Add(20 * time.Second)
+	// log.Printf("will be done at %v\n", doneAt)
+	// for i, _ := range lanes {
+	// 	log.Printf("waiting for %v\n", doneAt.Sub(time.Now()))
+	// 	lanes[i].WaitFor(doneAt.Sub(time.Now()))
+	// 	lanes[i].Close()
 	// }
+	count := 0
+	for count < 4 {
+		select {
+		case <-lanes[0].Channel:
+			lanes[0].Close()
+			count += 1
+		case <-lanes[1].Channel:
+			lanes[1].Close()
+			count += 1
+		case <-lanes[2].Channel:
+			lanes[2].Close()
+			count += 1
+		case <-lanes[3].Channel:
+			lanes[3].Close()
+			count += 1
+		case <-time.After(20 * time.Second):
+			lanes[0].Close()
+			lanes[1].Close()
+			lanes[2].Close()
+			lanes[3].Close()
+			count = 4
+		}
+	}
 }
 
 // GetTimes returns the difference between a set of lanes and start time
