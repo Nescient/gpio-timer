@@ -5,6 +5,7 @@ package gpio
 import (
 	"github.com/warthog618/gpiod"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -39,32 +40,39 @@ type GpioTime struct {
 	Pending bool
 	Line    *gpiod.Line
 	Channel chan int
+	lock    sync.Mutex
 }
 
 // New initializes the structure to default values
 func (this *GpioTime) New(chip string, offset int) {
 	this.Close()
+	this.lock.Lock()
 	this.Chip = chip
 	this.Lane = offset
 	this.Time = 0
 	this.Pending = true
 	this.Line = nil
 	this.Channel = make(chan int)
+	this.lock.Unlock()
 }
 
 // Arm will register the GPIO for a falling edge event
 func (this *GpioTime) Arm() (err error) {
+	this.lock.Lock()
 	this.Pending = true
 	this.Line, err = gpiod.RequestLine(this.Chip, this.Lane, gpiod.AsInput,
 		gpiod.WithEventHandler(this.gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
+	this.lock.Unlock()
 	return
 }
 
 // gpioHandler handles a GPIO event for a given GpioTime struct
 func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 	if evt.Offset == this.Lane {
+		this.lock.Lock()
 		this.Pending = false
 		this.Time = evt.Timestamp
+		this.lock.Unlock()
 		this.Channel <- 1
 	} else {
 		log.Printf("Received unknown GPIO event %d\n", evt.Offset)
@@ -86,14 +94,16 @@ func (this *GpioTime) WaitForever() {
 // amount of time expires
 func (this *GpioTime) WaitFor(timeout time.Duration) {
 	log.Printf("GPIOTIME Waiting for %v\n", timeout)
-	pending := this.Pending
-	for pending {
-		select {
-		case <-this.Channel:
-			pending = false
-		case t := <-time.After(timeout):
-			log.Printf("Lane Timeout triggered at %v\n", t)
-			pending = false
+	if timeout > 0 {
+		pending := this.Pending
+		for pending {
+			select {
+			case <-this.Channel:
+				pending = false
+			case t := <-time.After(timeout):
+				log.Printf("Lane Timeout triggered at %v\n", t)
+				pending = false
+			}
 		}
 	}
 }
@@ -101,10 +111,12 @@ func (this *GpioTime) WaitFor(timeout time.Duration) {
 // Close will close any open GPIO lanes for the GpioTime struct
 // as well as the channel
 func (this *GpioTime) Close() {
+	this.lock.Lock()
 	if this.Line != nil {
 		this.Line.Close()
 	}
 	// close(this.Channel) // not safe to do multiple times
+	this.lock.Unlock()
 }
 
 // createLanes initializes an array of GpioTime structures
