@@ -13,3 +13,8 @@ docker run -itd --name derby-timer --restart unless-stopped --net=host \
 
 echo "To see output in the terminal, run"
 echo "docker logs derby-timer"
+
+while true; do
+   docker logs derby-timer
+   sleep 1
+done
