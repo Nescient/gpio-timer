@@ -64,14 +64,18 @@ func (this *GpioTime) Arm() (err error) {
 // gpioHandler handles a GPIO event for a given GpioTime struct
 func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 	if evt.Offset == this.Lane {
-		this.Time = evt.Timestamp
-		this.Pending.Store(false)
-		// need to non-blocking send this
-		select {
-		case this.Channel <- 1:
-			log.Println("waiters on channel")
-		default:
-			log.Println("no waiters on channel")
+		if this.Pending.CompareAndSwap(true, false) {
+			this.Time = evt.Timestamp
+			this.Pending.Store(false)
+			// need to non-blocking send this
+			select {
+			case this.Channel <- 1:
+				// message sent
+			default:
+				// message dropped
+			}
+		} else {
+			log.Printf("Received GPIO event %d twice\n", evt.Offset)
 		}
 	} else {
 		log.Printf("Received unknown GPIO event %d\n", evt.Offset)
