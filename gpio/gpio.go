@@ -65,10 +65,13 @@ func (this *GpioTime) Arm() (err error) {
 func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 	if evt.Offset == this.Lane {
 		log.Printf("Received %d at %v\n", evt.Offset, evt.Timestamp)
-		this.Pending.Store(false)
 		this.Time = evt.Timestamp
-		this.Channel <- 1
-		close(this.Channel)
+		this.Pending.Store(false)
+		// need to non-blocking send this
+		select {
+		case this.Channel <- 1:
+		default:
+		}
 	} else {
 		log.Printf("Received unknown GPIO event %d\n", evt.Offset)
 	}
