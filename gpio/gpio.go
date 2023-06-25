@@ -57,7 +57,8 @@ func (this *GpioTime) New(chip string, offset int) {
 func (this *GpioTime) Arm() (err error) {
 	this.Pending.Store(true)
 	this.Line, err = gpiod.RequestLine(this.Chip, this.Lane, gpiod.AsInput,
-		gpiod.WithEventHandler(this.gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp)
+		gpiod.WithEventHandler(this.gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp,
+		gpiod.WithDebounce(1*time.Millisecond))
 	return
 }
 
