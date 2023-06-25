@@ -64,9 +64,9 @@ func (this *GpioTime) Arm() (err error) {
 // gpioHandler handles a GPIO event for a given GpioTime struct
 func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 	if evt.Offset == this.Lane {
+		// if pending, swap and set time
 		if this.Pending.CompareAndSwap(true, false) {
 			this.Time = evt.Timestamp
-			this.Pending.Store(false)
 			// need to non-blocking send this
 			select {
 			case this.Channel <- 1:
