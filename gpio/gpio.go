@@ -27,10 +27,10 @@ import (
 var startChip = "gpiochip3"
 var laneChip = "gpiochip2"
 var startGpio = 4
-var lane1Gpio = 24
-var lane2Gpio = 25
-var lane3Gpio = 20
-var lane4Gpio = 21
+var lane2Gpio = 24
+var lane3Gpio = 25
+var lane4Gpio = 20
+var lane1Gpio = 21
 
 // GpioTime is a structure that represents a single GPIO event
 type GpioTime struct {
@@ -94,7 +94,7 @@ func (this *GpioTime) WaitForever() {
 // WaitFor will wait until the handler is called or a set
 // amount of time expires
 func (this *GpioTime) WaitFor(timeout time.Duration) {
-	log.Printf("GPIOTIME Waiting for %v\n", timeout)
+	log.Printf("GPIOTIME Waiting for %d: %v\n", this.Lane, timeout)
 	if timeout > 0 {
 		pending := this.Pending
 		for pending {
@@ -178,7 +178,7 @@ func WaitForLanes(lanes [4]*GpioTime) {
 		lanes[i].WaitFor(doneAt.Sub(time.Now()))
 		lanes[i].Close()
 	}
-	// count = 0
+	// count := 0
 	// for count < 4 {
 	// 	select {
 	// 	case <-lanes[0].Channel:
