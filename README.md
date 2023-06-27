@@ -1,5 +1,5 @@
 # gpio-timer
-A GPIO timer for DerbyNet server (https://derbynet.org/).
+A GPIO timer for DerbyNet server (https://derbynet.org/).  Please note that I am not affiliated with that project in any way nor do they endorse this timer.  I have tested with version 8 of derbynet server.
 
 This project uses golang to send timer messages to the derbynet server application.  It listens for GPIO pin changes.  Use the `build.sh` script to build the executable.  Install `docker` and use `go.sh run github.com/Nescient/gpio-timer` to run the executable.  Alternatively, install `go` to build and a new enough `glibc` for running.
 
