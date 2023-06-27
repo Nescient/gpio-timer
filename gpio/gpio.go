@@ -20,7 +20,6 @@ import (
 // 9       GND     GND     GND     GND     GND     GND     GND
 // 11      2       20      84      GPIO2_C4        V18
 // 13      2       21      85      GPIO2_C5        V17
-// 15      2       22      86      GPIO2_C6        V16
 // 17      GND     GND     GND     GND     GND     VCC_IO  GND
 
 // Constants to customize this timer.
