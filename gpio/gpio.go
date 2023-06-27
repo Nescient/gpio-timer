@@ -82,6 +82,7 @@ func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 	} else {
 		log.Printf("Received unknown GPIO event %d\n", evt.Offset)
 	}
+	log.Println("..end handler..")
 }
 
 // WaitForever will wait until the handler is called
@@ -92,6 +93,7 @@ func (this *GpioTime) WaitForever() {
 			log.Printf("GPIO %d complete.", this.Lane)
 		}
 	}
+	log.Println("..end wait..")
 }
 
 // WaitFor will wait until the handler is called or a set
@@ -114,6 +116,7 @@ func (this *GpioTime) Close() {
 		this.Line.Close()
 	}
 	// close(this.Channel) // not safe to do multiple times
+	log.Println("..end close..")
 }
 
 // createLanes initializes an array of GpioTime structures
