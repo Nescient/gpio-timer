@@ -87,10 +87,11 @@ func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
 
 // WaitForever will wait until the handler is called
 func (this *GpioTime) WaitForever() {
-	if this.Pending.Load() {
+	for this.Pending.Load() {
 		select {
 		case <-this.Channel:
 			log.Printf("GPIO %d complete.", this.Lane)
+		case <-time.After(1 * time.Second):
 		}
 	}
 	log.Println("..end wait..")
