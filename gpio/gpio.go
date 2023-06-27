@@ -114,6 +114,7 @@ func (this *GpioTime) WaitFor(timeout time.Duration) {
 func (this *GpioTime) Close() {
 	if this.Line != nil {
 		this.Line.Close()
+		this.Line = nil
 	}
 	// close(this.Channel) // not safe to do multiple times
 	log.Println("..end close..")
