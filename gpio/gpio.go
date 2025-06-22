@@ -3,7 +3,7 @@
 package gpio
 
 import (
-	"github.com/warthog618/gpiod"
+	"github.com/warthog618/go-gpiocdev"
 	"log"
 	"sync/atomic"
 	"time"
@@ -37,7 +37,7 @@ type GpioTime struct {
 	Lane    int
 	Time    time.Duration
 	Pending atomic.Bool
-	Line    *gpiod.Line
+	Line    *gpiocdev.Line
 	Channel chan int
 }
 
@@ -53,24 +53,27 @@ func (this *GpioTime) New(chip string, offset int) {
 }
 
 // Arm will register the GPIO for a falling edge event
-func (this *GpioTime) Arm(l bool) (err error) {
+func (this *GpioTime) Arm(risingEdge bool) (err error) {
 	this.Pending.Store(true)
-	if l {
+	if risingEdge {
 		log.Printf("doing rising edge\n")
-           this.Line, err = gpiod.RequestLine(this.Chip, this.Lane, gpiod.AsInput,
-	      gpiod.WithEventHandler(this.gpioHandler), gpiod.LineEdgeRising, gpiod.WithPullDown,
-	      gpiod.WithDebounce(1*time.Millisecond))
-      }	else {
-	      log.Printf("doing falling edge\n")
-	   this.Line, err = gpiod.RequestLine(this.Chip, this.Lane, gpiod.AsInput,
-		gpiod.WithEventHandler(this.gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp,
-		gpiod.WithDebounce(1*time.Millisecond))
+		this.Line, err = gpiocdev.RequestLine(this.Chip, this.Lane, gpiocdev.AsInput,
+			gpiocdev.WithEventHandler(this.gpioHandler), gpiocdev.LineEdgeRising, gpiocdev.WithPullDown,
+			gpiocdev.WithDebounce(1*time.Millisecond))
+	} else {
+		log.Printf("doing falling edge\n")
+		this.Line, err = gpiocdev.RequestLine(this.Chip, this.Lane, gpiocdev.AsInput,
+			gpiocdev.WithEventHandler(this.gpioHandler), gpiocdev.LineEdgeFalling, gpiocdev.WithPullUp,
+			gpiocdev.WithDebounce(1*time.Millisecond))
+	}
+	if err != nil {
+		log.Fatal(err)
 	}
 	return
 }
 
 // gpioHandler handles a GPIO event for a given GpioTime struct
-func (this *GpioTime) gpioHandler(evt gpiod.LineEvent) {
+func (this *GpioTime) gpioHandler(evt gpiocdev.LineEvent) {
 	if evt.Offset == this.Lane {
 		// if pending, swap and set time
 		if this.Pending.CompareAndSwap(true, false) {
