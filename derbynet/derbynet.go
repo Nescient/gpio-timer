@@ -17,13 +17,14 @@ import (
 	"strings"
 	"sync"
 	"time"
+	// "errors"
 )
 
 // fullUrl is the complete URL to the derbynet action page
-var fullUrl = "http://192.168.0.236/action.php"
+var fullUrl = "http://192.168.0.138/action.php"
 
 // logUrl is the complete URL to the derbynet logging page
-var logUrl = "http://192.168.0.236/post-timer-log.php"
+var logUrl = "http://192.168.0.138/post-timer-log.php"
 
 // HeatReady is the XML structure that indicates a race is
 // ready to start.
@@ -302,6 +303,11 @@ type logPost struct {
 func (l logPost) Write(p []byte) (n int, err error) {
 	size := len(p)
 	reader := bytes.NewReader(p)
+	if l.client == nil {
+		fmt.Println("!!! Attempting to log while disconnected. !!!")
+		// log.SetOutput(os.Stdout)
+		return os.Stdout.Write(p)
+	}
 	l.client.lock.Lock()
 	resp, err := l.client.client.Post(logUrl, "text/plain", reader)
 	l.client.lock.Unlock()
@@ -315,7 +321,6 @@ func (l logPost) Write(p []byte) (n int, err error) {
 		fmt.Println(err)
 		return size, err
 	}
-
 	fmt.Println(string(body))
 
 	doc, err := xmlquery.Parse(strings.NewReader(string(body)))
@@ -342,7 +347,7 @@ func (this *DerbyNet) SendLogs(en bool) {
 		this.sendLogs = en
 		if en {
 			log.Printf("sending logs...")
-			log.SetOutput(&logPost{})
+			log.SetOutput(&logPost{this})
 		} else {
 			log.SetOutput(os.Stdout)
 			log.Printf("not sending logs...")
