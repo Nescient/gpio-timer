@@ -54,11 +54,19 @@ func (this *GpioTime) New(chip string, offset int) {
 }
 
 // Arm will register the GPIO for a falling edge event
-func (this *GpioTime) Arm() (err error) {
+func (this *GpioTime) Arm(l bool) (err error) {
 	this.Pending.Store(true)
-	this.Line, err = gpiod.RequestLine(this.Chip, this.Lane, gpiod.AsInput,
+	if l {
+		log.Printf("doing rising edge\n")
+           this.Line, err = gpiod.RequestLine(this.Chip, this.Lane, gpiod.AsInput,
+	      gpiod.WithEventHandler(this.gpioHandler), gpiod.LineEdgeRising, gpiod.WithPullDown,
+	      gpiod.WithDebounce(1*time.Millisecond))
+      }	else {
+	      log.Printf("doing falling edge\n")
+	   this.Line, err = gpiod.RequestLine(this.Chip, this.Lane, gpiod.AsInput,
 		gpiod.WithEventHandler(this.gpioHandler), gpiod.LineEdgeFalling, gpiod.WithPullUp,
 		gpiod.WithDebounce(1*time.Millisecond))
+	}
 	return
 }
 
@@ -138,7 +146,7 @@ func createLanes() (lanes [4]*GpioTime) {
 func ArmStart() (start *GpioTime, err error) {
 	start = new(GpioTime)
 	start.New(startChip, startGpio)
-	err = start.Arm()
+	err = start.Arm(false)
 	return
 }
 
@@ -146,7 +154,7 @@ func ArmStart() (start *GpioTime, err error) {
 func ArmLanes() (lanes [4]*GpioTime, err error) {
 	lanes = createLanes()
 	for i, _ := range lanes {
-		err = lanes[i].Arm()
+		err = lanes[i].Arm(false)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -171,7 +179,7 @@ func deltaTimes(start *GpioTime, end *GpioTime) float64 {
 // WaitForLanes waits until all 4 lanes have triggered and returns
 // the time difference for each lane
 func WaitForLanes(lanes [4]*GpioTime) {
-	doneAt := time.Now().Add(20 * time.Second)
+	doneAt := time.Now().Add(15 * time.Second)
 	for i, _ := range lanes {
 		lanes[i].WaitFor(doneAt.Sub(time.Now()))
 		lanes[i].Close()
